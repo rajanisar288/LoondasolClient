@@ -1,0 +1,141 @@
+<!-- Overlay -->
+<div
+  *ngIf="isOpen || isClosing"
+  class="shared-drawer-overlay"
+  [class.shared-drawer-overlay--closing]="isClosing"
+  [class]="overlayClass"
+  (click)="onBackdropClick($event)"
+></div>
+
+<!-- Drawer Panel -->
+<div
+  *ngIf="isOpen || isClosing"
+  #drawerContainer
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="title || 'Drawer panel'"
+  class="shared-drawer-panel mx-[1%] my-[1dvh] rounded-xl shadow-2xl bg-white dark:bg-[#27292d] border border-slate-200/80 dark:border-slate-800 z-[1000] overflow-hidden"
+  [ngClass]="getPanelClasses()"
+  [style.transform-origin]="getTransformOrigin()"
+  [style.width]="getCustomWidth()"
+  [style.height]="getCustomHeight()"
+  (click)="$event.stopPropagation()"
+>
+  <!-- Header -->
+  <div
+    *ngIf="showHeader"
+    class="flex shrink-0 items-center justify-between border-b border-slate-200/80 dark:border-slate-800 px-6 py-4 bg-white dark:bg-[#202226]"
+  >
+    <div class="flex min-w-0 flex-1 items-center gap-3">
+      <!-- Custom header template -->
+      <ng-container *ngIf="headerTemplate">
+        <ng-container
+          [ngTemplateOutlet]="headerTemplate"
+          [ngTemplateOutletContext]="{ $implicit: data, title: title, subtitle: subtitle }"
+        ></ng-container>
+      </ng-container>
+
+      <!-- Default header -->
+      <ng-container *ngIf="!headerTemplate">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-slate-900 dark:text-white truncate tracking-tight">{{ title }}</h2>
+            <ng-content select="[drawer-header-badge]"></ng-content>
+          </div>
+          <p *ngIf="subtitle" class="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">{{ subtitle }}</p>
+        </div>
+      </ng-container>
+    </div>
+
+    <!-- Header Actions / Close button -->
+    <div class="flex items-center gap-2 shrink-0">
+      <ng-content select="[drawer-header-actions]"></ng-content>
+
+      <button
+        *ngIf="showCloseButton"
+        type="button"
+        (click)="close()"
+        class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-transform duration-200 hover:rotate-90 focus:outline-none"
+        aria-label="Close drawer"
+      >
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Content (Scrollable) -->
+  <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+    <!-- Custom content template if provided -->
+    <ng-container *ngIf="contentTemplate">
+      <ng-container [ngTemplateOutlet]="contentTemplate" [ngTemplateOutletContext]="{ $implicit: data }"></ng-container>
+    </ng-container>
+
+    <!-- Default projected content -->
+    <ng-content></ng-content>
+  </div>
+
+  <!-- Footer -->
+  <div
+    *ngIf="showFooter"
+    class="shrink-0 border-t border-slate-200/80 dark:border-slate-800 px-6 py-4 bg-slate-50/70 dark:bg-[#202226] flex items-center justify-between gap-3"
+  >
+    <!-- Left Footer Slot (e.g. Reset All button) -->
+    <div class="flex items-center gap-2">
+      <ng-container *ngIf="footerLeftTemplate">
+        <ng-container [ngTemplateOutlet]="footerLeftTemplate" [ngTemplateOutletContext]="{ $implicit: data }"></ng-container>
+      </ng-container>
+      <ng-content select="[drawer-footer-left]"></ng-content>
+
+      <button
+        *ngIf="showResetButton"
+        type="button"
+        (click)="onResetClick()"
+        class="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline underline-offset-2 transition-colors"
+      >
+        {{ resetLabel }}
+      </button>
+    </div>
+
+    <!-- Right Footer Actions -->
+    <div class="flex items-center gap-3">
+      <!-- Custom footer template -->
+      <ng-container *ngIf="footerTemplate">
+        <ng-container [ngTemplateOutlet]="footerTemplate" [ngTemplateOutletContext]="{ $implicit: data }"></ng-container>
+      </ng-container>
+
+      <ng-content select="[drawer-footer]"></ng-content>
+
+      <!-- Default footer buttons -->
+      <ng-container *ngIf="showDefaultFooterActions && !footerTemplate">
+        <button
+          type="button"
+          (click)="onSecondaryClick()"
+          class="rounded-lg px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-colors"
+        >
+          {{ secondaryLabel }}
+        </button>
+
+        <button
+          type="button"
+          [disabled]="primaryDisabled || primaryLoading"
+          (click)="onPrimaryClick()"
+          class="inline-flex items-center gap-2 rounded-lg bg-[#2A65F6] dark:bg-[#343a3f] dark:hover:bg-[#3f464c] dark:border dark:border-[#474d55] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg
+            *ngIf="primaryLoading"
+            class="animate-spin -ml-1 h-3.5 w-3.5 text-white"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          {{ primaryLabel }}
+        </button>
+      </ng-container>
+    </div>
+  </div>
+</div>

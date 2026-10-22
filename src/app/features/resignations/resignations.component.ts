@@ -1,0 +1,323 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
+
+export interface ExitClearance {
+  itAssetsReturned: boolean;
+  accessRevoked: boolean;
+  idBadgeReturned: boolean;
+  financeDuesCleared: boolean;
+  knowledgeTransferDone: boolean;
+}
+
+export interface Resignation {
+  resignationId: string;
+  employeeName: string;
+  employeeEmail: string;
+  departmentName?: string;
+  submissionDate: string;
+  intendedLastWorkingDay: string;
+  reason: string;
+  status: 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  clearanceChecklist: ExitClearance;
+  exitInterviewNotes?: string;
+}
+
+@Component({
+  selector: 'app-resignations',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
+    <div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Resignations & Exit Clearance
+          </h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Submit departure requests, manage corporate handovers, and track complete 5-point exit clearances.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          (click)="openSubmitModal()"
+          class="inline-flex items-center space-x-2 px-4 py-2.5 bg-[#2A65F6] hover:bg-[#2052cb] text-white text-sm font-semibold rounded-xl shadow-sm transition"
+        >
+          <span>Submit Resignation</span>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        @if (isLoading()) {
+          <div class="text-center py-12 text-slate-400">Loading resignation records...</div>
+        } @else if (resignations().length === 0) {
+          <div class="bg-white dark:bg-slate-900 rounded-2xl p-12 border border-slate-200 dark:border-slate-800 text-center space-y-3">
+            <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 flex items-center justify-center mx-auto text-xl">
+              📝
+            </div>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">No active resignations</h3>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto">
+              All staff members are actively operating in their roles with zero pending departure filings.
+            </p>
+          </div>
+        } @else {
+          <div class="space-y-4">
+            @for (res of resignations(); track res.resignationId) {
+              <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ res.employeeName }}</h3>
+                    <p class="text-xs text-slate-400">{{ res.employeeEmail }} • {{ res.departmentName || 'General Staff' }}</p>
+                  </div>
+
+                  <div class="flex items-center space-x-2">
+                    <span
+                      class="px-2.5 py-1 rounded-full text-xs font-bold"
+                      [ngClass]="{
+                        'bg-amber-50 text-amber-600 dark:bg-amber-950/50': res.status === 'SUBMITTED' || res.status === 'UNDER_REVIEW',
+                        'bg-blue-50 text-blue-600 dark:bg-blue-950/50': res.status === 'APPROVED',
+                        'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50': res.status === 'COMPLETED',
+                        'bg-red-50 text-red-600 dark:bg-red-950/50': res.status === 'REJECTED'
+                      }"
+                    >
+                      {{ res.status }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div class="space-y-1">
+                    <span class="text-slate-400 font-medium">Intended Last Working Day:</span>
+                    <div class="font-bold text-slate-900 dark:text-white">{{ res.intendedLastWorkingDay | date:'mediumDate' }}</div>
+                    <span class="text-slate-400 font-medium block pt-2">Reason for Departure:</span>
+                    <p class="text-slate-700 dark:text-slate-300 italic">{{ res.reason }}</p>
+                  </div>
+
+                  <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-2">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">5-Point Exit Clearance Checklist</span>
+                    <div class="space-y-1.5">
+                      <label class="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          [checked]="res.clearanceChecklist.itAssetsReturned"
+                          [disabled]="!canManageClearance()"
+                          (change)="toggleChecklist(res.resignationId, 'itAssetsReturned', $event)"
+                          class="rounded text-[#2A65F6]"
+                        />
+                        <span class="text-slate-600 dark:text-slate-300">1. IT Laptops & Hardware Returned</span>
+                      </label>
+                      <label class="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          [checked]="res.clearanceChecklist.accessRevoked"
+                          [disabled]="!canManageClearance()"
+                          (change)="toggleChecklist(res.resignationId, 'accessRevoked', $event)"
+                          class="rounded text-[#2A65F6]"
+                        />
+                        <span class="text-slate-600 dark:text-slate-300">2. Corporate Cloud Access Revoked</span>
+                      </label>
+                      <label class="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          [checked]="res.clearanceChecklist.idBadgeReturned"
+                          [disabled]="!canManageClearance()"
+                          (change)="toggleChecklist(res.resignationId, 'idBadgeReturned', $event)"
+                          class="rounded text-[#2A65F6]"
+                        />
+                        <span class="text-slate-600 dark:text-slate-300">3. Physical ID Badge / Keys Returned</span>
+                      </label>
+                      <label class="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          [checked]="res.clearanceChecklist.financeDuesCleared"
+                          [disabled]="!canManageClearance()"
+                          (change)="toggleChecklist(res.resignationId, 'financeDuesCleared', $event)"
+                          class="rounded text-[#2A65F6]"
+                        />
+                        <span class="text-slate-600 dark:text-slate-300">4. Finance & Final Settlement Dues Cleared</span>
+                      </label>
+                      <label class="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          [checked]="res.clearanceChecklist.knowledgeTransferDone"
+                          [disabled]="!canManageClearance()"
+                          (change)="toggleChecklist(res.resignationId, 'knowledgeTransferDone', $event)"
+                          class="rounded text-[#2A65F6]"
+                        />
+                        <span class="text-slate-600 dark:text-slate-300">5. Knowledge Transfer (KT) Signed Off</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                @if (canManageClearance() && res.status !== 'COMPLETED' && res.status !== 'REJECTED') {
+                  <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      (click)="updateStatus(res.resignationId, 'APPROVED')"
+                      class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition"
+                    >
+                      Approve Notice
+                    </button>
+                    <button
+                      type="button"
+                      (click)="updateStatus(res.resignationId, 'COMPLETED')"
+                      class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition"
+                    >
+                      Complete & Terminate Role
+                    </button>
+                    <button
+                      type="button"
+                      (click)="updateStatus(res.resignationId, 'REJECTED')"
+                      class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (showSubmitModal()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Submit Resignation</h3>
+            <button type="button" (click)="showSubmitModal.set(false)" class="text-slate-400 hover:text-slate-600">✕</button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Intended Last Working Day *</label>
+              <input
+                type="date"
+                [(ngModel)]="newLastDate"
+                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:border-[#2A65F6]"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Reason for Resignation *</label>
+              <textarea
+                [(ngModel)]="newReason"
+                rows="4"
+                placeholder="State your reason for departure and notice period details..."
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:border-[#2A65F6]"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end space-x-3 pt-2">
+            <button
+              type="button"
+              (click)="showSubmitModal.set(false)"
+              class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              (click)="submitResignation()"
+              [disabled]="!newLastDate || !newReason.trim() || isSubmitting()"
+              class="px-5 py-2 bg-[#2A65F6] hover:bg-[#2052cb] text-white text-sm font-bold rounded-xl transition disabled:opacity-50"
+            >
+              {{ isSubmitting() ? 'Submitting...' : 'Confirm Submission' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+  `,
+})
+export class ResignationsComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  readonly authService = inject(AuthService);
+
+  readonly resignations = signal<Resignation[]>([]);
+  readonly isLoading = signal(true);
+  readonly showSubmitModal = signal(false);
+  readonly isSubmitting = signal(false);
+
+  newLastDate = '';
+  newReason = '';
+
+  ngOnInit(): void {
+    this.fetchResignations();
+  }
+
+  fetchResignations(): void {
+    this.isLoading.set(true);
+    this.api.get<Resignation[]>('resignations').subscribe({
+      next: (res) => {
+        this.resignations.set(res || []);
+        this.isLoading.set(false);
+      },
+      error: () => this.isLoading.set(false),
+    });
+  }
+
+  canManageClearance(): boolean {
+    return (
+      this.authService.currentUser()?.isOwner ||
+      this.authService.hasAnyPermission(['resignations.approve'])
+    );
+  }
+
+  openSubmitModal(): void {
+    this.newLastDate = '';
+    this.newReason = '';
+    this.showSubmitModal.set(true);
+  }
+
+  submitResignation(): void {
+    if (!this.newLastDate || !this.newReason.trim()) return;
+    this.isSubmitting.set(true);
+    this.api
+      .post<Resignation>('resignations', {
+        intendedLastWorkingDay: this.newLastDate,
+        reason: this.newReason.trim(),
+      })
+      .subscribe({
+        next: (created) => {
+          this.resignations.update((list) => [created, ...list]);
+          this.showSubmitModal.set(false);
+          this.isSubmitting.set(false);
+        },
+        error: () => this.isSubmitting.set(false),
+      });
+  }
+
+  toggleChecklist(resignationId: string, field: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.api
+      .patch<Resignation>(`resignations/${resignationId}/clearance`, {
+        [field]: checked,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.resignations.update((list) =>
+            list.map((r) => (r.resignationId === resignationId ? updated : r)),
+          );
+        },
+      });
+  }
+
+  updateStatus(resignationId: string, status: string): void {
+    this.api
+      .patch<Resignation>(`resignations/${resignationId}/status`, { status })
+      .subscribe({
+        next: (updated) => {
+          this.resignations.update((list) =>
+            list.map((r) => (r.resignationId === resignationId ? updated : r)),
+          );
+        },
+      });
+  }
+}
