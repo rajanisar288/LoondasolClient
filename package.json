@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "fuser -k 4200/tcp 2>/dev/null || true; NG_CLI_ANALYTICS=false ng serve",
-    "build": "NG_CLI_ANALYTICS=false HOME=/home/nisar89/Development/sssssssssss ng build",
+    "build": "NG_CLI_ANALYTICS=false ng build",
     "watch": "NG_CLI_ANALYTICS=false HOME=/home/nisar89/Development/sssssssssss ng build --watch --configuration development",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "NG_CLI_ANALYTICS=false HOME=/home/nisar89/Development/sssssssssss ng test"
