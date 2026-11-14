@@ -61,14 +61,14 @@ export const routes: Routes = [
   },
   {
     path: '',
-    pathMatch: 'full',
-    redirectTo: 'dashboard',
-  },
-  {
-    path: '',
     component: MainLayoutComponent,
     canActivate: [authGuard],
     children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'dashboard',
+      },
       {
         path: 'dashboard',
         loadComponent: () =>
