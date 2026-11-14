@@ -90,6 +90,20 @@ export class SocketService {
   private readonly api = inject(ApiService);
   private readonly ngZone = inject(NgZone);
   private socket: Socket | null = null;
+  private isConnecting = false;
+  private wsDisabled = false;
+
+  private isWebSocketSupportedHost(): boolean {
+    const url = environment.socketUrl || '';
+    // Vercel Serverless Functions do not support persistent WebSockets.
+    // If the API is hosted on api.loondasol.com or vercel.app, we bypass
+    // raw WebSocket dialing to eliminate browser console errors,
+    // seamlessly running via the HTTP REST API + polling fallback.
+    if (url.includes('api.loondasol.com') || (environment.production && url.includes('vercel.app'))) {
+      return false;
+    }
+    return true;
+  }
 
   private readonly messageSubject = new Subject<ChatMessage>();
   private readonly notificationSubject = new Subject<RealtimeNotification>();
@@ -153,27 +167,44 @@ export class SocketService {
     const token = this.tokenService.getAccessToken();
     if (!token) return;
 
-    if (this.socket && this.socket.connected) {
+    // In environments that do not support WebSockets (like Vercel serverless),
+    // skip dialing to avoid browser console errors.
+    if (!this.isWebSocketSupportedHost() || this.wsDisabled) {
+      return;
+    }
+
+    if (this.socket && (this.socket.connected || this.isConnecting)) {
       return;
     }
 
     if (this.socket) {
-      this.socket.disconnect();
+      try {
+        this.socket.disconnect();
+      } catch {}
     }
 
+    this.isConnecting = true;
     const socketEndpoint = `${environment.socketUrl}/chat`;
     this.socket = io(socketEndpoint, {
       auth: { token },
       transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 2000,
-      reconnectionAttempts: 3,
-      timeout: 5000,
+      reconnection: false,
+      timeout: 4000,
+    });
+
+    this.socket.on('connect', () => {
+      this.isConnecting = false;
     });
 
     this.socket.on('connect_error', () => {
-      // Serverless hosting environments like Vercel do not maintain open TCP/WebSocket connections.
-      // Chat functionality gracefully degrades to REST fallback.
+      this.isConnecting = false;
+      this.wsDisabled = true;
+      if (this.socket) {
+        try {
+          this.socket.disconnect();
+        } catch {}
+        this.socket = null;
+      }
     });
 
     this.socket.on('newMessage', (message: ChatMessage) => {
