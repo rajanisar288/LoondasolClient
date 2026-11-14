@@ -35,7 +35,10 @@ export const routes: Routes = [
     canActivate: [
       () => {
         if (typeof window !== 'undefined') {
-          window.location.href = `${environment.marketingUrl}/signup`;
+          const search = window.location.search || '';
+          const params = new URLSearchParams(search);
+          const destination = params.get('token') ? '/accept-invitation' : '/signup';
+          window.location.href = `${environment.marketingUrl}${destination}${search}`;
         }
         return false;
       },
@@ -47,7 +50,36 @@ export const routes: Routes = [
     canActivate: [
       () => {
         if (typeof window !== 'undefined') {
-          window.location.href = `${environment.marketingUrl}/signup`;
+          const search = window.location.search || '';
+          const params = new URLSearchParams(search);
+          const destination = params.get('token') ? '/accept-invitation' : '/signup';
+          window.location.href = `${environment.marketingUrl}${destination}${search}`;
+        }
+        return false;
+      },
+    ],
+    children: [],
+  },
+  {
+    path: 'accept-invitation',
+    canActivate: [
+      () => {
+        if (typeof window !== 'undefined') {
+          const search = window.location.search || '';
+          window.location.href = `${environment.marketingUrl}/accept-invitation${search}`;
+        }
+        return false;
+      },
+    ],
+    children: [],
+  },
+  {
+    path: 'invite',
+    canActivate: [
+      () => {
+        if (typeof window !== 'undefined') {
+          const search = window.location.search || '';
+          window.location.href = `${environment.marketingUrl}/accept-invitation${search}`;
         }
         return false;
       },
