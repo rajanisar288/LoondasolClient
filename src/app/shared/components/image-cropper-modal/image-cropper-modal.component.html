@@ -1,0 +1,129 @@
+<app-modal
+  [isOpen]="isOpen"
+  [title]="title"
+  subtitle="Drag image to reposition, use slider to zoom in or out, or rotate."
+  size="md"
+  [closeOnBackdrop]="false"
+  (closed)="cancel()"
+>
+  <div class="space-y-4">
+    <!-- Canvas Area -->
+    <div class="flex flex-col items-center justify-center p-2 bg-slate-900 rounded-2xl border border-slate-800 shadow-inner overflow-hidden select-none">
+      @if (!isImageLoaded()) {
+        <div class="w-[360px] h-[360px] flex flex-col items-center justify-center text-slate-400 space-y-2">
+          <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="text-xs font-medium">Loading image...</span>
+        </div>
+      }
+      <canvas
+        #cropperCanvas
+        [width]="canvasSize"
+        [height]="canvasSize"
+        [class.hidden]="!isImageLoaded()"
+        class="cursor-grab active:cursor-grabbing rounded-xl touch-none max-w-full"
+        (mousedown)="onMouseDown($event)"
+        (mousemove)="onMouseMove($event)"
+        (mouseup)="onMouseUp()"
+        (mouseleave)="onMouseUp()"
+        (touchstart)="onTouchStart($event)"
+        (touchmove)="onTouchMove($event)"
+        (touchend)="onTouchEnd()"
+        (wheel)="onWheel($event)"
+      ></canvas>
+    </div>
+
+    <!-- Zoom & Rotation Controls -->
+    <div class="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+      <!-- Zoom Row -->
+      <div class="flex items-center space-x-3">
+        <button
+          type="button"
+          (click)="zoomOut()"
+          class="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+          title="Zoom Out"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+          </svg>
+        </button>
+
+        <input
+          type="range"
+          min="1"
+          max="3"
+          step="0.02"
+          [ngModel]="zoom()"
+          (ngModelChange)="onZoomChange($event)"
+          class="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#2A65F6]"
+        />
+
+        <button
+          type="button"
+          (click)="zoomIn()"
+          class="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+          title="Zoom In"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+
+        <span class="text-xs font-mono font-semibold text-slate-600 dark:text-slate-300 w-12 text-right">
+          {{ (zoom() * 100).toFixed(0) }}%
+        </span>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700/60 text-xs">
+        <div class="flex items-center space-x-2">
+          <button
+            type="button"
+            (click)="rotateRight()"
+            class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#2A65F6] flex items-center space-x-1.5 transition font-medium"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Rotate 90°</span>
+          </button>
+
+          <button
+            type="button"
+            (click)="resetAll()"
+            class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition font-medium"
+          >
+            Reset
+          </button>
+        </div>
+
+        <span class="text-[11px] text-slate-400 dark:text-slate-500 italic">
+          Scroll or drag to adjust
+        </span>
+      </div>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <app-button
+        variant="secondary"
+        type="button"
+        (click)="cancel()"
+        [disabled]="isProcessing()"
+      >
+        Cancel
+      </app-button>
+
+      <app-button
+        type="button"
+        [loading]="isProcessing()"
+        (click)="saveCrop()"
+        [disabled]="!isImageLoaded()"
+      >
+        Save & Apply
+      </app-button>
+    </div>
+  </div>
+</app-modal>

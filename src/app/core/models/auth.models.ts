@@ -96,6 +96,8 @@ export interface RegisterPayload {
   region?: 'PK' | 'IND' | 'USA' | 'EU' | 'UAE';
   timezone?: string;
   currency?: string;
+  subscriptionPlan?: 'STARTER' | 'PRO' | 'ENTERPRISE';
+  purchasedSeats?: number;
   // Employee specific
   invitationToken?: string;
   companyRegion?: string;

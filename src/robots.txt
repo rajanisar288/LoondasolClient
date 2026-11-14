@@ -1,0 +1,3 @@
+# Disallow all search engines and web crawlers from indexing the private Loondasol workspace dashboard
+User-agent: *
+Disallow: /

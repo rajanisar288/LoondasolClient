@@ -9,29 +9,29 @@ export const routes: Routes = [
   {
     path: 'auth/login',
     loadComponent: () =>
-      import('./features/auth/login/login.component').then((m) => m.LoginComponent),
+      import('./core/auth/login/login.component').then((m) => m.LoginComponent),
     canActivate: [guestGuard],
   },
   {
     path: 'auth/register',
     loadComponent: () =>
-      import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
+      import('./core/auth/register/register.component').then((m) => m.RegisterComponent),
     canActivate: [guestGuard],
   },
   {
     path: 'register',
     loadComponent: () =>
-      import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
+      import('./core/auth/register/register.component').then((m) => m.RegisterComponent),
     canActivate: [guestGuard],
   },
   {
     path: 'home',
-    loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
+    loadComponent: () => import('./public/home/home.component').then((m) => m.HomeComponent),
   },
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
+    loadComponent: () => import('./public/home/home.component').then((m) => m.HomeComponent),
   },
   {
     path: '',

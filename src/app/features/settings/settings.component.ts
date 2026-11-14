@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
@@ -18,6 +18,16 @@ import { AppBadgeComponent } from '../../shared/components/badge/badge.component
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCheckboxComponent } from '../../shared/components/checkbox/checkbox.component';
 import { AppTabsComponent, TabItem } from '../../shared/components/tabs/tabs.component';
+
+export interface SeatStatusResponse {
+  purchasedSeats: number;
+  totalActiveSeats: number;
+  availableSeats: number;
+  plan: string;
+  pricePerSeat: number;
+  aiLimit: number;
+  aiUsed: number;
+}
 
 export interface SalaryComponentItem {
   id: string;
@@ -203,1889 +213,16 @@ export interface OnboardingFormItem {
     AppCheckboxComponent,
     AppTabsComponent,
   ],
-  template: `
-    <div class="space-y-6 w-full">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 class="page-title">Workspace Settings</h1>
-      </div>
-
-      @if (saveSuccess()) {
-        <div
-          class="p-4 rounded-[8px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-sm text-emerald-800 dark:text-emerald-300 flex items-center justify-between"
-        >
-          <span>Settings saved successfully.</span>
-          <button
-            type="button"
-            (click)="saveSuccess.set(false)"
-            class="text-emerald-600 hover:text-emerald-800 text-xs font-semibold"
-          >
-            ✕
-          </button>
-        </div>
-      }
-
-      @if (errorMessage()) {
-        <div
-          class="p-4 rounded-[8px] bg-red-50 dark:bg-red-950/40 border border-red-200 text-sm text-red-800 dark:text-red-300 flex items-center justify-between"
-        >
-          <span>{{ errorMessage() }}</span>
-          <button
-            type="button"
-            (click)="errorMessage.set(null)"
-            class="text-red-600 hover:text-red-800 text-xs font-semibold"
-          >
-            ✕
-          </button>
-        </div>
-      }
-
-      <div class="w-full">
-        <app-tabs
-          [tabs]="settingsTabs"
-          [activeTab]="activeSection()"
-          (activeTabChange)="activeSection.set($event)"
-        ></app-tabs>
-      </div>
-
-      <form [formGroup]="settingsForm" (ngSubmit)="saveSettings()" class="space-y-6 w-full">
-        @if (activeSection() === 'all' || activeSection() === 'profile') {
-          <div class="card p-6 space-y-5 w-full">
-            <div class="border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Organization Profile
-              </h3>
-            </div>
-
-            <div
-              class="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-[8px] bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80"
-            >
-              <div
-                class="relative w-16 h-16 rounded-[8px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm"
-              >
-                @if (settingsForm.get('logoUrl')?.value) {
-                  <img
-                    [src]="settingsForm.get('logoUrl')?.value"
-                    alt="Company Logo"
-                    class="w-full h-full object-cover"
-                  />
-                } @else {
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-7 h-7 text-slate-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="1.5"
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                }
-              </div>
-
-              <div class="space-y-1.5 flex-1">
-                <div class="flex items-center space-x-3">
-                  <label
-                    class="cursor-pointer inline-flex items-center px-3.5 py-[10px] rounded-[8px] text-xs font-semibold text-white bg-[#2A65F6] hover:bg-blue-600 transition shadow-sm"
-                  >
-                    @if (isUploadingLogo()) {
-                      <svg
-                        class="animate-spin -ml-0.5 mr-2 h-3.5 w-3.5 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          class="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          stroke-width="4"
-                        ></circle>
-                        <path
-                          class="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      <span>Uploading...</span>
-                    } @else {
-                      <span>Upload Logo</span>
-                    }
-                    <input
-                      type="file"
-                      (change)="onLogoSelected($event)"
-                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                      class="hidden"
-                      [disabled]="isUploadingLogo()"
-                    />
-                  </label>
-
-                  @if (settingsForm.get('logoUrl')?.value) {
-                    <button
-                      type="button"
-                      (click)="removeLogo()"
-                      class="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-[10px] transition"
-                    >
-                      Remove
-                    </button>
-                  }
-                </div>
-                @if (logoUploadError()) {
-                  <p class="text-xs text-red-600 font-medium">{{ logoUploadError() }}</p>
-                }
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <app-input
-                label="Company Legal Name"
-                placeholder="Workiv Technologies"
-                [required]="true"
-                formControlName="name"
-              ></app-input>
-
-              <app-input
-                label="Contact Phone"
-                placeholder="+1 555-0199"
-                formControlName="phone"
-              ></app-input>
-
-              <app-input
-                label="Corporate Website"
-                placeholder="https://workivlab.com"
-                formControlName="website"
-              ></app-input>
-
-              <app-select
-                label="Company Size"
-                [options]="companySizeOptions"
-                formControlName="companySize"
-              ></app-select>
-
-              <app-select
-                label="Industry Sector"
-                [options]="industryOptions"
-                formControlName="industry"
-              ></app-select>
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'regional') {
-          <div class="card p-6 space-y-5 w-full">
-            <div class="border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Localization & Currency
-              </h3>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <app-select
-                label="Primary Timezone"
-                [options]="timezoneOptions"
-                formControlName="timezone"
-              ></app-select>
-
-              <app-select
-                label="Operating Currency"
-                [options]="currencyOptions"
-                formControlName="currency"
-              ></app-select>
-
-              <app-input
-                label="City"
-                placeholder="Karachi"
-                formControlName="city"
-              ></app-input>
-
-              <app-input
-                label="Postal Code"
-                placeholder="75500"
-                formControlName="postalCode"
-              ></app-input>
-
-              <div class="col-span-full">
-                <app-input
-                  label="Physical Address"
-                  placeholder="123 Tech Boulevard, Suite 400"
-                  formControlName="address"
-                ></app-input>
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'hours') {
-          <div class="card p-6 space-y-5 w-full" formGroupName="workingHours">
-            <div
-              class="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between"
-            >
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Working Hours & Shift Compliance
-              </h3>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" formControlName="enabled" class="sr-only peer" />
-                <div
-                  class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2A65F6]"
-                ></div>
-              </label>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <app-input
-                label="Shift Start Time (HH:MM)"
-                placeholder="09:00"
-                [required]="true"
-                formControlName="startTime"
-              ></app-input>
-
-              <app-input
-                label="Shift End Time (HH:MM)"
-                placeholder="18:00"
-                [required]="true"
-                formControlName="endTime"
-              ></app-input>
-
-              <app-input
-                label="Late Grace Period (Minutes)"
-                placeholder="15"
-                type="number"
-                [required]="true"
-                formControlName="lateGracePeriodMinutes"
-              ></app-input>
-            </div>
-
-            <div class="pt-1">
-              <app-multi-select
-                label="Designated Working Days"
-                [options]="daysOfWeek"
-                [value]="selectedDays()"
-                (valueChange)="selectedDays.set($any($event))"
-              ></app-multi-select>
-            </div>
-
-            <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
-              <label class="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  formControlName="loginRestriction"
-                  class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]"
-                />
-                <span class="text-xs font-semibold text-slate-900 dark:text-white">
-                  Strict Off-Hours Login Restriction
-                </span>
-              </label>
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'departments') {
-          <div class="card p-6 space-y-5 w-full">
-            <div
-              class="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between"
-            >
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Departments
-              </h3>
-              <app-button size="sm" type="button" (click)="openAddDeptModal()">
-                + Add Department
-              </app-button>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              @for (dept of departments(); track dept.departmentId) {
-                <div
-                  class="p-3.5 rounded-[8px] border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between"
-                >
-                  <div>
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">
-                      {{ dept.name }}
-                    </h4>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                      {{ dept.employeeCount || 0 }} members
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    (click)="deleteDept(dept.departmentId)"
-                    class="text-xs text-slate-400 hover:text-red-600 transition p-1"
-                    title="Delete department"
-                  >
-                    ✕
-                  </button>
-                </div>
-              } @empty {
-                <div class="col-span-full text-center py-6 text-xs text-slate-400">
-                  No departments configured yet.
-                </div>
-              }
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'branches') {
-          <div class="card p-6 space-y-5 w-full">
-            <div
-              class="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between"
-            >
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Company Branches
-              </h3>
-              <app-button size="sm" type="button" (click)="openAddBranchModal()">
-                + Add Branch
-              </app-button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              @for (branch of branches(); track branch.branchId) {
-                <div
-                  class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-3"
-                >
-                  <div class="flex items-start justify-between">
-                    <div>
-                      <h4 class="text-sm font-bold text-slate-900 dark:text-white">{{ branch.name }}</h4>
-                      <p class="text-xs text-slate-400 mt-0.5">{{ branch.address }}</p>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                      <button
-                        type="button"
-                        (click)="openEditBranchModal(branch)"
-                        class="px-2 py-1 text-xs rounded-[8px] border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        (click)="deleteBranch(branch.branchId)"
-                        class="px-2 py-1 text-xs rounded-[8px] border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 transition"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                    <div>
-                      <span class="text-slate-400 block text-[10px] uppercase font-semibold">Timezone</span>
-                      <span class="font-medium text-slate-700 dark:text-slate-300 truncate block">{{ branch.timezone }}</span>
-                    </div>
-                    <div>
-                      <span class="text-slate-400 block text-[10px] uppercase font-semibold">Currency</span>
-                      <span class="font-medium text-slate-700 dark:text-slate-300">{{ branch.currency || authService.currentCompany()?.currency || 'USD' }}</span>
-                    </div>
-                    @if (branch.phone) {
-                      <div>
-                        <span class="text-slate-400 block text-[10px] uppercase font-semibold">Phone</span>
-                        <span class="font-medium text-slate-700 dark:text-slate-300 truncate block">{{ branch.phone }}</span>
-                      </div>
-                    }
-                  </div>
-
-                  @if (branch.workingHours) {
-                    <div class="bg-white dark:bg-slate-800/80 p-2.5 rounded-[8px] border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-1">
-                      <div class="flex items-center justify-between">
-                        <span class="font-semibold text-slate-700 dark:text-slate-200">
-                          {{ branch.workingHours.startTime }} - {{ branch.workingHours.endTime }}
-                        </span>
-                        @if (branch.workingHours.enforceLoginRestriction) {
-                          <span class="px-2 py-0.5 rounded-[8px] text-[10px] font-bold bg-[#2A65F6]/10 text-[#2A65F6]">
-                            Strict Shift
-                          </span>
-                        } @else {
-                          <span class="px-2 py-0.5 rounded-[8px] text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                            Flexible
-                          </span>
-                        }
-                      </div>
-                      <div class="text-[11px] text-slate-400">
-                        {{ formatWorkingDays(branch.workingHours.workingDays) }}
-                      </div>
-                    </div>
-                  }
-                </div>
-              } @empty {
-                <div class="col-span-full text-center py-6 text-xs text-slate-400">
-                  No branches configured yet.
-                </div>
-              }
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'subscription') {
-          <div class="card p-6 space-y-5 w-full">
-            <div
-              class="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between"
-            >
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Billing & Plan
-              </h3>
-              <app-badge variant="primary">{{ subscription()?.plan || 'FREE_TRIAL' }}</app-badge>
-            </div>
-
-            @if (subscription()?.stripeCustomerId) {
-              <div class="flex justify-end">
-                <app-button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  [loading]="isManagingBilling()"
-                  (click)="openBillingPortal()"
-                >
-                  Manage Billing Portal
-                </app-button>
-              </div>
-            }
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              @if (subscription()?.plan !== 'PRO') {
-                <div
-                  class="p-5 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 hover:border-[#2A65F6] transition shadow-sm"
-                >
-                  <div class="flex items-start justify-between">
-                    <h4 class="font-bold text-slate-900 dark:text-white">Pro Tier</h4>
-                    <span class="text-lg font-bold text-[#2A65F6]">$49<span class="text-xs text-slate-400">/mo</span></span>
-                  </div>
-                  <ul class="text-xs text-slate-500 dark:text-slate-400 space-y-2">
-                    <li>• Up to 100 employee accounts</li>
-                    <li>• AI Executive Report generation</li>
-                    <li>• Advanced attendance audits</li>
-                  </ul>
-                  <app-button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    [loading]="isUpgrading() === 'PRO'"
-                    (click)="upgradePlan('PRO')"
-                  >
-                    Upgrade to Pro
-                  </app-button>
-                </div>
-              }
-
-              @if (subscription()?.plan !== 'ULTRA') {
-                <div
-                  class="p-5 rounded-[8px] border border-[#2A65F6]/30 bg-blue-50/20 dark:bg-blue-950/10 space-y-4 shadow-sm"
-                >
-                  <div class="flex items-start justify-between">
-                    <h4 class="font-bold text-slate-900 dark:text-white">Ultra Unlimited</h4>
-                    <span class="text-lg font-bold text-[#2A65F6]">$149<span class="text-xs text-slate-400">/mo</span></span>
-                  </div>
-                  <ul class="text-xs text-slate-500 dark:text-slate-400 space-y-2">
-                    <li>• Unlimited employees and branches</li>
-                    <li>• Multi-region data replication</li>
-                    <li>• 24/7 dedicated enterprise support</li>
-                  </ul>
-                  <app-button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    [loading]="isUpgrading() === 'ULTRA'"
-                    (click)="upgradePlan('ULTRA')"
-                  >
-                    Upgrade to Ultra
-                  </app-button>
-                </div>
-              }
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'onboarding') {
-          <div class="card p-6 space-y-5 w-full">
-            <div class="border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Onboarding Requirements
-              </h3>
-            </div>
-
-            <div formGroupName="onboardingConfig" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <label class="flex items-center space-x-3 p-3.5 rounded-[8px] border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
-                <input
-                  type="checkbox"
-                  formControlName="requireCnic"
-                  class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                />
-                <span class="text-xs font-semibold text-slate-900 dark:text-white">Require National ID</span>
-              </label>
-
-              <label class="flex items-center space-x-3 p-3.5 rounded-[8px] border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
-                <input
-                  type="checkbox"
-                  formControlName="requireAddress"
-                  class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                />
-                <span class="text-xs font-semibold text-slate-900 dark:text-white">Require Address</span>
-              </label>
-
-              <label class="flex items-center space-x-3 p-3.5 rounded-[8px] border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
-                <input
-                  type="checkbox"
-                  formControlName="requireBankDetails"
-                  class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                />
-                <span class="text-xs font-semibold text-slate-900 dark:text-white">Require Bank Details</span>
-              </label>
-
-              <label class="flex items-center space-x-3 p-3.5 rounded-[8px] border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
-                <input
-                  type="checkbox"
-                  formControlName="allowBranchDepartments"
-                  class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                />
-                <span class="text-xs font-semibold text-slate-900 dark:text-white">Branch Departments</span>
-              </label>
-
-              <label class="flex items-center space-x-3 p-3.5 rounded-[8px] border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
-                <input
-                  type="checkbox"
-                  formControlName="allowBranchCustomForms"
-                  class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                />
-                <span class="text-xs font-semibold text-slate-900 dark:text-white">Branch Custom Forms</span>
-              </label>
-            </div>
-
-            <div class="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
-              <div class="flex items-center justify-between">
-                <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                  Custom Onboarding Forms
-                </h4>
-                <app-button size="sm" type="button" (click)="openCreateFormModal()">
-                  + Create Custom Form
-                </app-button>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                @for (form of onboardingForms(); track form.templateId) {
-                  <div class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
-                    <div class="flex items-start justify-between">
-                      <div>
-                        <div class="flex items-center space-x-2">
-                          <h5 class="text-sm font-bold text-slate-900 dark:text-white">{{ form.title }}</h5>
-                          @if (form.isDefault) {
-                            <span class="px-2 py-0.5 rounded-[8px] text-[10px] font-bold bg-[#2A65F6]/10 text-[#2A65F6]">
-                              DEFAULT
-                            </span>
-                          }
-                        </div>
-                        <p class="text-xs text-slate-400 mt-0.5">
-                          {{ form.branchName ? form.branchName : 'All Branches' }}
-                          @if (form.departmentName) {
-                            • {{ form.departmentName }}
-                          }
-                        </p>
-                      </div>
-
-                      <div class="flex items-center space-x-1">
-                        <button
-                          type="button"
-                          (click)="openEditFormModal(form)"
-                          class="px-2 py-1 text-xs rounded-[8px] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          (click)="deleteCustomForm(form.templateId)"
-                          class="px-2 py-1 text-xs rounded-[8px] border border-red-200 dark:border-red-900/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-
-                    <div class="flex flex-wrap gap-1.5 pt-1">
-                      @for (f of form.fields; track f.id) {
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-[8px] text-[11px] bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300">
-                          <span class="font-medium mr-1">{{ f.label }}</span>
-                          <span class="text-[10px] text-slate-400">({{ f.type }})</span>
-                        </span>
-                      }
-                    </div>
-                  </div>
-                } @empty {
-                  <div class="col-span-full p-6 text-center rounded-[8px] border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
-                    No custom onboarding forms created yet.
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'payroll') {
-          <div class="space-y-6 w-full" formGroupName="payrollConfig">
-            <!-- Studio Header Bar -->
-            <div class="card p-6 space-y-5 w-full">
-              <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div>
-                  <div class="flex items-center space-x-2.5">
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">
-                      Salary Slip Studio & Payroll Automation
-                    </h3>
-                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#2A65F6]/10 text-[#2A65F6]">
-                      Template v{{ settingsForm.get('payrollConfig.templateVersion')?.value || 1 }}
-                    </span>
-                  </div>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Design company-wide salary slip layouts, custom earnings/deductions formulas, e-Signatures, Cloudinary PDF archiving, and automated email dispatch.
-                  </p>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-2.5">
-                  <!-- Mode Switcher: Designer vs Actual Slip Preview -->
-                  <div class="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80">
-                    <button
-                      type="button"
-                      (click)="setStudioView('designer')"
-                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5"
-                      [ngClass]="
-                        studioView() === 'designer'
-                          ? 'bg-white dark:bg-slate-900 text-[#2A65F6] shadow-sm'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      "
-                    >
-                      <span>⚙️ Designer</span>
-                    </button>
-                    <button
-                      type="button"
-                      (click)="setStudioView('preview')"
-                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5"
-                      [ngClass]="
-                        studioView() === 'preview'
-                          ? 'bg-white dark:bg-slate-900 text-[#2A65F6] shadow-sm'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      "
-                    >
-                      <span>👁️ Actual Slip Preview</span>
-                    </button>
-                  </div>
-
-                  <app-button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    [loading]="isPreviewingSlip()"
-                    (click)="refreshLiveSlipPreview()"
-                    title="Reload live preview with latest settings"
-                  >
-                    🔄 Refresh
-                  </app-button>
-
-                  <app-button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    (click)="openSlipLivePreview()"
-                    title="Open in fullscreen preview modal"
-                  >
-                    ↗️ Modal View
-                  </app-button>
-                </div>
-              </div>
-
-              <!-- Phase 1 & 4: Core Payroll Rules, Attendance LOP & Email Automation -->
-              <div class="space-y-4">
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Phase 1 & 4 • Payroll Rules, Attendance LOP & Email Automation
-                </h4>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-                  <app-select
-                    label="Late Fine Type"
-                    formControlName="lateFineType"
-                    [options]="[
-                      { label: 'Percentage (%)', value: 'PERCENTAGE' },
-                      { label: 'Fixed Amount', value: 'FIXED_AMOUNT' }
-                    ]"
-                  ></app-select>
-                  <app-input
-                    label="Late Fine Rate"
-                    type="number"
-                    formControlName="lateFineValue"
-                  ></app-input>
-                  <app-input
-                    label="Overtime Multiplier"
-                    type="number"
-                    formControlName="overtimeMultiplier"
-                  ></app-input>
-                  <app-input
-                    label="Standard Working Days"
-                    type="number"
-                    formControlName="standardWorkingDays"
-                  ></app-input>
-                  <app-input
-                    label="Salary Pay Day (1 - 31)"
-                    type="number"
-                    formControlName="salaryPayDay"
-                  ></app-input>
-                  <app-input
-                    label="Default Tax (%)"
-                    type="number"
-                    formControlName="defaultTaxPercentage"
-                  ></app-input>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <!-- Auto Generate Slips -->
-                  <label class="flex items-start space-x-3 p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 cursor-pointer hover:border-[#2A65F6]/50 transition">
-                    <input
-                      type="checkbox"
-                      formControlName="autoSalarySlipEnabled"
-                      class="mt-0.5 rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <div>
-                      <span class="text-xs font-bold text-slate-900 dark:text-white block">
-                        Auto-Generate Monthly Salary Slips on Pay Day
-                      </span>
-                      <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Automatically calculates attendance, leaves, custom components, and archives PDFs to Cloudinary on Day {{ settingsForm.get('payrollConfig.salaryPayDay')?.value || 1 }} of each month.
-                      </span>
-                    </div>
-                  </label>
-
-                  <!-- Auto Email Dispatch Toggle -->
-                  <label class="flex items-start space-x-3 p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 cursor-pointer hover:border-[#2A65F6]/50 transition">
-                    <input
-                      type="checkbox"
-                      formControlName="autoSendEmail"
-                      class="mt-0.5 rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <div>
-                      <span class="text-xs font-bold text-slate-900 dark:text-white block">
-                        Auto-Send Salary Slip Emails to Each Employee
-                      </span>
-                      <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        When enabled, emails are automatically sent on Pay Day. When disabled, you can preview, customize bonuses/fuel, and send slips one-by-one or in bulk from the Payroll page.
-                      </span>
-                    </div>
-                  </label>
-
-                  <!-- Attendance & LOP Integration -->
-                  <label class="flex items-start space-x-3 p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 cursor-pointer hover:border-[#2A65F6]/50 transition">
-                    <input
-                      type="checkbox"
-                      formControlName="enableLopDeduction"
-                      class="mt-0.5 rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <div>
-                      <span class="text-xs font-bold text-slate-900 dark:text-white block">
-                        Attendance & Leave LOP (Loss of Pay) Integration
-                      </span>
-                      <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Auto-pulls Present Days, Paid Leaves, and Unpaid Leaves from Attendance & Leave modules and deducts per-day LOP automatically.
-                      </span>
-                    </div>
-                  </label>
-
-                  <!-- Password Protect PDF -->
-                  <div class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-3">
-                    <label class="flex items-start space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        formControlName="passwordProtectPdf"
-                        class="mt-0.5 rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                      />
-                      <div>
-                        <span class="text-xs font-bold text-slate-900 dark:text-white block">
-                          Password-Protect Salary Slip PDFs
-                        </span>
-                        <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                          Include security password rules & hints in employee salary slip emails.
-                        </span>
-                      </div>
-                    </label>
-                    @if (settingsForm.get('payrollConfig.passwordProtectPdf')?.value) {
-                      <app-select
-                        label="PDF Password Rule"
-                        formControlName="pdfPasswordRule"
-                        [options]="[
-                          { label: 'Last 4 Characters of Employee ID', value: 'EMP_ID_LAST4' },
-                          { label: 'First 4 Letters of Name (CAPS) + Pay Year', value: 'NAME4_YEAR' }
-                        ]"
-                      ></app-select>
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Phase 2: Template Layout Selection & Show/Hide Fields -->
-            <div class="card p-6 space-y-5 w-full">
-              <div class="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
-                <div>
-                  <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                    Phase 2 • Template Layout Selection & Field Visibility
-                  </h4>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Choose from 3 print-ready HTML/PDF layouts and toggle which fields appear on generated payslips.
-                  </p>
-                </div>
-              </div>
-
-              <!-- 3 Layout Cards -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                @for (layout of slipLayoutOptions; track layout.id) {
-                  <div
-                    (click)="selectSlipLayout(layout.id)"
-                    class="p-4 rounded-[8px] border-2 cursor-pointer transition space-y-2"
-                    [ngClass]="
-                      settingsForm.get('payrollConfig.templateLayout')?.value === layout.id
-                        ? 'border-[#2A65F6] bg-blue-50/30 dark:bg-blue-950/20'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                    "
-                  >
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-bold text-slate-900 dark:text-white">{{ layout.title }}</span>
-                      @if (settingsForm.get('payrollConfig.templateLayout')?.value === layout.id) {
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#2A65F6] text-white">ACTIVE</span>
-                      }
-                    </div>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{{ layout.desc }}</p>
-                  </div>
-                }
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div>
-                  <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Primary Brand Color
-                  </label>
-                  <div class="flex items-center space-x-2">
-                    <input
-                      type="color"
-                      formControlName="primaryColor"
-                      class="h-10 w-14 rounded-[8px] border border-slate-200 dark:border-slate-700 cursor-pointer bg-white dark:bg-slate-900 p-1"
-                    />
-                    <input
-                      type="text"
-                      formControlName="primaryColor"
-                      class="flex-1 px-3 py-2 rounded-[8px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono text-slate-800 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                <app-select
-                  label="Net Pay in Words Format"
-                  formControlName="numberWordsFormat"
-                  [options]="[
-                    { label: 'Indian / South Asian (Lakhs & Crores)', value: 'INDIAN_SOUTH_ASIAN' },
-                    { label: 'International (Thousands & Millions)', value: 'INTERNATIONAL' }
-                  ]"
-                ></app-select>
-
-                <app-select
-                  label="Header Alignment"
-                  formControlName="headerAlignment"
-                  [options]="[
-                    { label: 'Split (Company Left • Period Right)', value: 'SPLIT' },
-                    { label: 'Centered Executive Header', value: 'CENTERED' },
-                    { label: 'Left Aligned Stack', value: 'LEFT' }
-                  ]"
-                ></app-select>
-              </div>
-
-              <!-- Show / Hide Fields Grid -->
-              <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
-                  Show / Hide Payslip Columns & Sections
-                </label>
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                  @for (toggle of slipFieldToggles; track toggle.control) {
-                    <label class="flex items-center space-x-2.5 p-2.5 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/30 cursor-pointer hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition">
-                      <input
-                        type="checkbox"
-                        [formControlName]="toggle.control"
-                        class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                      />
-                      <span class="text-xs font-medium text-slate-800 dark:text-slate-200">{{ toggle.label }}</span>
-                    </label>
-                  }
-                </div>
-              </div>
-            </div>
-
-            <!-- Phase 3: Custom Salary Components & Formula Builder -->
-            <div class="card p-6 space-y-5 w-full">
-              <div class="border-b border-slate-100 dark:border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                    Phase 3 • Custom Salary Components & Formula Builder
-                  </h4>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Configure auto-calculated Earnings (HRA, Medical, Fuel, Conveyance) and Deductions (PF, EOBI, Insurance) using fixed amounts, % of base, or custom formulas.
-                  </p>
-                </div>
-                <app-button size="sm" type="button" (click)="openAddSalaryComponentModal()">
-                  + Add Salary Component
-                </app-button>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                @for (comp of salaryComponents(); track comp.id) {
-                  <div class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-2.5">
-                    <div class="flex items-start justify-between">
-                      <div>
-                        <div class="flex items-center space-x-2">
-                          <h5 class="text-xs font-bold text-slate-900 dark:text-white">{{ comp.name }}</h5>
-                          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            {{ comp.code }}
-                          </span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                          @if (comp.calculationType === 'FIXED') {
-                            Fixed Amount: <strong>{{ comp.value }}</strong>
-                          } @else if (comp.calculationType === 'PERCENTAGE_OF_BASE') {
-                            <strong>{{ comp.value }}%</strong> of Base Salary
-                          } @else {
-                            Formula: <code class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/50 text-[#2A65F6] font-mono">{{ comp.formula }}</code>
-                          }
-                        </p>
-                      </div>
-
-                      <span
-                        class="px-2 py-0.5 rounded-[8px] text-[10px] font-bold"
-                        [ngClass]="
-                          comp.type === 'EARNING'
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                            : 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300'
-                        "
-                      >
-                        {{ comp.type }}
-                      </span>
-                    </div>
-
-                    <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800 text-[11px]">
-                      <label class="flex items-center space-x-1.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          [checked]="comp.enabled"
-                          (change)="toggleSalaryComponent(comp.id)"
-                          class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                        />
-                        <span class="text-slate-600 dark:text-slate-400 font-medium">
-                          {{ comp.enabled ? 'Enabled' : 'Disabled' }}
-                        </span>
-                      </label>
-
-                      <div class="flex items-center space-x-2">
-                        <button
-                          type="button"
-                          (click)="openEditSalaryComponentModal(comp)"
-                          class="text-[#2A65F6] hover:underline font-semibold"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          (click)="removeSalaryComponent(comp.id)"
-                          class="text-red-600 hover:text-red-700 font-semibold"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                } @empty {
-                  <div class="col-span-full p-6 text-center rounded-[8px] border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
-                    No custom salary components added yet. Click "+ Add Salary Component" to add HRA, Medical, Fuel Allowance, PF, etc.
-                  </div>
-                }
-              </div>
-            </div>
-
-            <!-- Phase 5 & 6: Header/Footer Designer, Signature Upload & Digital e-Sign -->
-            <div class="card p-6 space-y-5 w-full">
-              <div class="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                  Phase 5 & 6 • Header / Footer Customization, Signature Upload & Digital e-Sign
-                </h4>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Customize header/footer branding, upload an authorized signature image to Cloudinary, and enable cryptographic e-Sign verification stamps.
-                </p>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <app-input
-                  label="Header Title"
-                  placeholder="SALARY SLIP"
-                  formControlName="headerTitle"
-                ></app-input>
-                <app-input
-                  label="Header Subtitle"
-                  placeholder="Official Monthly Compensation Statement"
-                  formControlName="headerSubtitle"
-                ></app-input>
-                <app-input
-                  label="Header Custom Notice / Tagline"
-                  placeholder="e.g. Strictly Confidential - HR Department"
-                  formControlName="headerCustomNote"
-                ></app-input>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <app-input
-                  label="Footer Primary Text"
-                  placeholder="This is a computer-generated salary slip..."
-                  formControlName="footerText"
-                ></app-input>
-                <app-input
-                  label="Footer Confidentiality Disclaimer"
-                  placeholder="Confidential — For the named recipient only."
-                  formControlName="footerDisclaimer"
-                ></app-input>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <app-input
-                  label="Authorized Signatory Name"
-                  placeholder="e.g. Sarah Jenkins"
-                  formControlName="signatoryName"
-                ></app-input>
-                <app-input
-                  label="Signatory Designation / Title"
-                  placeholder="e.g. Head of People & Finance"
-                  formControlName="signatoryTitle"
-                ></app-input>
-
-                <div class="flex flex-col justify-end">
-                  <label class="flex items-center space-x-2.5 p-3 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      formControlName="enableESignStamp"
-                      class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <span class="text-xs font-bold text-slate-900 dark:text-white">
-                      Enable Digital e-Sign Verification Stamp
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <!-- Signature Upload Box -->
-              <div class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center space-x-4">
-                  @if (settingsForm.get('payrollConfig.signatureImageUrl')?.value) {
-                    <img
-                      [src]="settingsForm.get('payrollConfig.signatureImageUrl')?.value"
-                      alt="Authorized Signature"
-                      class="h-12 max-w-[160px] object-contain rounded border border-slate-200 dark:border-slate-700 bg-white p-1.5"
-                    />
-                  } @else {
-                    <div class="h-12 w-32 rounded border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-[11px] text-slate-400">
-                      No Signature
-                    </div>
-                  }
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 dark:text-white">Authorized Signature Image</div>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                      Upload a transparent PNG/JPG signature (stored on Cloudinary and embedded in HTML & PDF slips).
-                    </p>
-                  </div>
-                </div>
-
-                <div class="flex items-center space-x-2">
-                  <label class="px-3.5 py-2 rounded-[8px] bg-[#2A65F6] hover:bg-[#2052cb] text-white text-xs font-semibold cursor-pointer transition">
-                    <span>{{ isUploadingSignature() ? 'Uploading...' : 'Upload Signature' }}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      class="hidden"
-                      (change)="onSignatureSelected($event)"
-                    />
-                  </label>
-                  @if (settingsForm.get('payrollConfig.signatureImageUrl')?.value) {
-                    <button
-                      type="button"
-                      (click)="settingsForm.get('payrollConfig.signatureImageUrl')?.setValue('')"
-                      class="px-3 py-2 rounded-[8px] border border-red-200 dark:border-red-900/40 text-red-600 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 transition"
-                    >
-                      Clear
-                    </button>
-                  }
-                </div>
-              </div>
-            </div>
-
-            <!-- Live Salary Slip Preview Card (Always visible so company can see the actual preview) -->
-            <div class="card p-6 space-y-4 w-full bg-slate-50/60 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-800 shadow-sm">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-                <div>
-                  <div class="flex items-center space-x-2">
-                    <h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>📄 Live Salary Slip Preview</span>
-                      <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#2A65F6]/10 text-[#2A65F6]">
-                        Actual Output
-                      </span>
-                    </h4>
-                  </div>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    This is the exact layout, colors, components, and format your employees will see in their email and downloaded PDF.
-                  </p>
-                </div>
-
-                <div class="flex items-center space-x-2">
-                  <app-button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    [loading]="isPreviewingSlip()"
-                    (click)="refreshLiveSlipPreview()"
-                  >
-                    🔄 Refresh Preview
-                  </app-button>
-                  <app-button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    (click)="openPreviewInNewWindow()"
-                  >
-                    ↗️ Print / Full View
-                  </app-button>
-                </div>
-              </div>
-
-              <!-- Preview Frame Container -->
-              <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950 p-2 sm:p-5 overflow-x-auto min-h-[460px] flex justify-center">
-                @if (slipPreviewSafeHtml()) {
-                  <div class="w-full max-w-4xl bg-white rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-800" [innerHTML]="slipPreviewSafeHtml()"></div>
-                } @else if (isPreviewingSlip()) {
-                  <div class="py-24 flex flex-col items-center justify-center space-y-3">
-                    <div class="w-8 h-8 border-2 border-[#2A65F6] border-t-transparent rounded-full animate-spin"></div>
-                    <span class="text-xs font-semibold text-slate-400">Rendering live salary slip preview...</span>
-                  </div>
-                } @else {
-                  <div class="py-24 text-center space-y-3">
-                    <p class="text-xs text-slate-400">Click below to generate and display the actual live preview.</p>
-                    <app-button type="button" size="sm" (click)="refreshLiveSlipPreview()">
-                      👁️ Load Live Slip Preview
-                    </app-button>
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'leavePolicy') {
-          <div class="card p-6 space-y-5 w-full">
-            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div>
-                <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                  Leave & Time-Off Policy
-                </h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Configure company yearly baseline quota, max monthly leave limits, and custom leave types.
-                </p>
-              </div>
-              <app-button size="sm" type="button" (click)="openAddLeaveTypeModal()">
-                + Add Custom Leave Type
-              </app-button>
-            </div>
-
-            <div formGroupName="leavePolicy" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <app-input
-                label="Total Yearly Baseline Quota (Days)"
-                type="number"
-                placeholder="24"
-                formControlName="totalYearlyQuota"
-              ></app-input>
-
-              <app-input
-                label="Max Monthly Allowed Leaves"
-                type="number"
-                placeholder="2"
-                formControlName="monthlyLimit"
-              ></app-input>
-            </div>
-
-            <div class="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-              <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                Configured Leave Types & Allowances
-              </h4>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                @for (type of leaveTypes(); track type.id) {
-                  <div class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-2 relative">
-                    <div class="flex items-start justify-between">
-                      <div>
-                        <h5 class="text-xs font-bold text-slate-900 dark:text-white">{{ type.name }}</h5>
-                        <span class="text-[10px] text-slate-400">ID: {{ type.id }}</span>
-                      </div>
-                      <span class="px-2 py-0.5 rounded-[8px] text-[10px] font-bold"
-                            [class]="type.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'">
-                        {{ type.isPaid ? 'PAID' : 'UNPAID' }}
-                      </span>
-                    </div>
-
-                    <div class="text-xs text-slate-600 dark:text-slate-400 space-y-1 pt-1">
-                      <div class="flex items-center justify-between">
-                        <span>Yearly Quota:</span>
-                        <span class="font-bold text-slate-900 dark:text-white">{{ type.quota }} days</span>
-                      </div>
-                      <div class="flex items-center justify-between">
-                        <span>Monthly Limit:</span>
-                        <span class="font-bold text-slate-900 dark:text-white">{{ type.monthlyLimit ?? 2 }} days</span>
-                      </div>
-                    </div>
-
-                    <div class="pt-2 flex justify-end">
-                      <button
-                        type="button"
-                        (click)="removeLeaveType(type.id)"
-                        class="text-[11px] text-red-600 hover:text-red-700 font-semibold"
-                      >
-                        Delete Type
-                      </button>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'performer') {
-          <div class="card p-6 space-y-5 w-full">
-            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Top Performer Leaderboard
-              </h3>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  formControlName="topPerformerEnabled"
-                  class="sr-only peer"
-                />
-                <div
-                  class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2A65F6]"
-                ></div>
-              </label>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <app-input
-                label="Evaluation Day of Month (1 - 31)"
-                type="number"
-                formControlName="topPerformerEvalDay"
-              ></app-input>
-            </div>
-          </div>
-        }
-
-        @if (activeSection() === 'all' || activeSection() === 'social') {
-          <div class="card p-6 space-y-5 w-full" formGroupName="socialMedia">
-            <div class="border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                Social Media Credentials
-              </h3>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div
-                formGroupName="linkedin"
-                class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-3"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-semibold text-slate-900 dark:text-white">LinkedIn</span>
-                  <label class="flex items-center space-x-1.5 cursor-pointer text-xs">
-                    <input
-                      type="checkbox"
-                      formControlName="connected"
-                      class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <span class="text-slate-600 dark:text-slate-400 font-medium">Connected</span>
-                  </label>
-                </div>
-                <div class="space-y-2.5">
-                  <app-input label="Company Username" formControlName="username"></app-input>
-                  <app-input label="Access Token" type="password" formControlName="password"></app-input>
-                  <app-input label="API Key" type="password" formControlName="apiKey"></app-input>
-                </div>
-              </div>
-
-              <div
-                formGroupName="twitter"
-                class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-3"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-semibold text-slate-900 dark:text-white">Twitter / X</span>
-                  <label class="flex items-center space-x-1.5 cursor-pointer text-xs">
-                    <input
-                      type="checkbox"
-                      formControlName="connected"
-                      class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <span class="text-slate-600 dark:text-slate-400 font-medium">Connected</span>
-                  </label>
-                </div>
-                <div class="space-y-2.5">
-                  <app-input label="Handle / Username" formControlName="username"></app-input>
-                  <app-input label="Access Token" type="password" formControlName="password"></app-input>
-                  <app-input label="Bearer Token" type="password" formControlName="apiKey"></app-input>
-                </div>
-              </div>
-
-              <div
-                formGroupName="facebook"
-                class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-3"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-semibold text-slate-900 dark:text-white">Facebook</span>
-                  <label class="flex items-center space-x-1.5 cursor-pointer text-xs">
-                    <input
-                      type="checkbox"
-                      formControlName="connected"
-                      class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <span class="text-slate-600 dark:text-slate-400 font-medium">Connected</span>
-                  </label>
-                </div>
-                <div class="space-y-2.5">
-                  <app-input label="Page ID" formControlName="username"></app-input>
-                  <app-input label="Page Token" type="password" formControlName="password"></app-input>
-                  <app-input label="Secret Key" type="password" formControlName="apiKey"></app-input>
-                </div>
-              </div>
-
-              <div
-                formGroupName="instagram"
-                class="p-4 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-3"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-semibold text-slate-900 dark:text-white">Instagram</span>
-                  <label class="flex items-center space-x-1.5 cursor-pointer text-xs">
-                    <input
-                      type="checkbox"
-                      formControlName="connected"
-                      class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                    />
-                    <span class="text-slate-600 dark:text-slate-400 font-medium">Connected</span>
-                  </label>
-                </div>
-                <div class="space-y-2.5">
-                  <app-input label="Instagram Handle" formControlName="username"></app-input>
-                  <app-input label="Access Token" type="password" formControlName="password"></app-input>
-                  <app-input label="Graph API Key" type="password" formControlName="apiKey"></app-input>
-                </div>
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (['all', 'profile', 'regional', 'hours', 'onboarding', 'payroll', 'leavePolicy', 'performer', 'social'].includes(activeSection())) {
-          <div class="flex items-center justify-end space-x-3">
-            <app-button type="submit" [loading]="isSaving()"> Save Configuration </app-button>
-          </div>
-        }
-      </form>
-
-      @if ((activeSection() === 'all' || activeSection() === 'danger') && authService.currentUser()?.isOwner) {
-        <div
-          class="card p-6 border-red-200 dark:border-red-900/50 bg-red-50/20 dark:bg-red-950/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full"
-        >
-          <div>
-            <h3 class="text-sm font-bold text-red-700 dark:text-red-400">
-              Delete Company Workspace
-            </h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Permanently delete this workspace and all associated records.
-            </p>
-          </div>
-          <button
-            type="button"
-            (click)="openDeleteCompanyModal()"
-            class="px-4 py-[10px] rounded-[8px] bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors whitespace-nowrap"
-          >
-            Delete Workspace
-          </button>
-        </div>
-      }
-
-      <app-modal
-        [isOpen]="isDeleteCompanyModalOpen()"
-        title="Delete Company Workspace"
-        (closed)="closeDeleteCompanyModal()"
-      >
-        <div class="space-y-4">
-          <div
-            class="p-3.5 rounded-[8px] bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-700 dark:text-red-300 leading-relaxed"
-          >
-            You are about to permanently delete
-            <strong>{{ authService.currentCompany()?.name || 'this workspace' }}</strong
-            >. This action cannot be undone.
-          </div>
-
-          <app-input
-            label="Type DELETE to confirm"
-            [value]="deleteConfirmationText()"
-            (input)="deleteConfirmationText.set($any($event.target).value)"
-          ></app-input>
-
-          <div
-            class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-slate-800"
-          >
-            <app-button variant="secondary" type="button" (click)="closeDeleteCompanyModal()"
-              >Cancel</app-button
-            >
-            <app-button
-              type="button"
-              variant="danger"
-              [loading]="isDeletingCompany()"
-              [disabled]="deleteConfirmationText().trim() !== 'DELETE'"
-              (click)="confirmDeleteCompany()"
-            >
-              Permanently Delete Workspace
-            </app-button>
-          </div>
-        </div>
-      </app-modal>
-
-      <app-modal
-        [isOpen]="isAddDeptModalOpen()"
-        title="Create New Department"
-        size="md"
-        [showFooter]="true"
-        primaryLabel="Save Department"
-        secondaryLabel="Cancel"
-        [primaryLoading]="isCreatingDept()"
-        (primaryAction)="createDept()"
-        (secondaryAction)="closeAddDeptModal()"
-        (closed)="closeAddDeptModal()"
-      >
-        <div class="space-y-4 py-1">
-          <app-input
-            label="Department Name"
-            placeholder="e.g. Product Engineering"
-            [value]="newDeptName()"
-            (input)="newDeptName.set($any($event.target).value)"
-          ></app-input>
-          <app-input
-            label="Department Description"
-            placeholder="e.g. Core software design, frontend, and API architecture"
-            [value]="newDeptDesc()"
-            (input)="newDeptDesc.set($any($event.target).value)"
-          ></app-input>
-        </div>
-      </app-modal>
-
-      <app-modal
-        [isOpen]="isAddBranchModalOpen()"
-        [title]="editingBranchId() ? 'Edit Office Branch' : 'Add New Office Branch'"
-        size="lg"
-        [showFooter]="true"
-        [primaryLabel]="editingBranchId() ? 'Update Branch' : 'Create Branch'"
-        secondaryLabel="Cancel"
-        [primaryLoading]="isSavingBranch()"
-        (primaryAction)="saveBranch()"
-        (secondaryAction)="closeAddBranchModal()"
-        (closed)="closeAddBranchModal()"
-      >
-        <form [formGroup]="branchForm" (ngSubmit)="saveBranch()" class="space-y-4 py-1">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <app-input
-              label="Branch Name"
-              placeholder="e.g. New York Regional HQ"
-              formControlName="name"
-            ></app-input>
-            <app-input
-              label="Contact Phone"
-              placeholder="e.g. +1 (212) 555-0199"
-              formControlName="phone"
-            ></app-input>
-          </div>
-          <app-input
-            label="Full Physical Address"
-            placeholder="e.g. 350 Fifth Ave, Suite 4800, New York, NY 10118"
-            formControlName="address"
-          ></app-input>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <app-select
-              label="Branch Timezone"
-              formControlName="timezone"
-              [options]="timezoneOptions"
-            ></app-select>
-            <app-select
-              label="Branch Currency"
-              formControlName="currency"
-              [options]="currencyOptions"
-            ></app-select>
-          </div>
-
-          <div
-            formGroupName="workingHours"
-            class="p-4 rounded-[8px] border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-4"
-          >
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Shift Schedule
-              </span>
-              <app-checkbox
-                [checked]="branchForm.get('workingHours.enabled')?.value"
-                (checkedChange)="branchForm.get('workingHours.enabled')?.setValue($event)"
-                label="Shift Active"
-              ></app-checkbox>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <app-input label="Start Time" formControlName="startTime"></app-input>
-              <app-input label="End Time" formControlName="endTime"></app-input>
-            </div>
-
-            <app-multi-select
-              label="Operational Working Days"
-              [options]="daysOfWeek"
-              [value]="branchSelectedDays()"
-              (valueChange)="branchSelectedDays.set($any($event))"
-            ></app-multi-select>
-
-            <div class="pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
-              <app-checkbox
-                [checked]="branchForm.get('workingHours.enforceLoginRestriction')?.value"
-                (checkedChange)="branchForm.get('workingHours.enforceLoginRestriction')?.setValue($event)"
-                label="Enforce strict login restriction during off-shift hours"
-              ></app-checkbox>
-            </div>
-          </div>
-        </form>
-      </app-modal>
-
-      <app-modal
-        [isOpen]="isFormBuilderModalOpen()"
-        [title]="editingFormTemplateId ? 'Edit Onboarding Form' : 'Create Custom Onboarding Form'"
-        [showFooter]="true"
-        [primaryLabel]="editingFormTemplateId ? 'Save Changes' : 'Create Form'"
-        secondaryLabel="Cancel"
-        [primaryLoading]="isSavingForm()"
-        [primaryDisabled]="!formTitle.trim()"
-        (primaryAction)="saveCustomForm()"
-        (secondaryAction)="closeFormBuilderModal()"
-        (closed)="closeFormBuilderModal()"
-      >
-        <div class="space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <app-input
-              label="Form Title"
-              [value]="formTitle"
-              (input)="formTitle = $any($event.target).value"
-            ></app-input>
-            <app-select
-              label="Branch Scope"
-              [(ngModel)]="formBranchId"
-              [options]="branchScopeOptions()"
-            ></app-select>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <app-select
-              label="Department Scope"
-              [(ngModel)]="formDepartmentId"
-              [options]="departmentScopeOptions()"
-            ></app-select>
-            <div class="flex items-center pt-2">
-              <label class="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  [(ngModel)]="formIsDefault"
-                  class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                />
-                <span class="text-xs font-semibold text-slate-900 dark:text-white">Default Form</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="space-y-3 pt-2">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold uppercase tracking-wider text-slate-500">Custom Fields</label>
-              <button
-                type="button"
-                (click)="addCustomField()"
-                class="text-xs text-[#2A65F6] hover:underline font-semibold"
-              >
-                + Add Field
-              </button>
-            </div>
-
-            <div class="space-y-3">
-              @for (field of formFields; track $index) {
-                <div class="p-3.5 rounded-[8px] border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60 space-y-3">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Field #{{ $index + 1 }}</span>
-                    <button
-                      type="button"
-                      (click)="removeCustomField($index)"
-                      class="text-red-500 hover:text-red-700 text-xs font-semibold"
-                    >
-                      ✕ Remove
-                    </button>
-                  </div>
-
-                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div class="sm:col-span-2">
-                      <app-input
-                        label="Field Label"
-                        [value]="field.label"
-                        (input)="field.label = $any($event.target).value"
-                      ></app-input>
-                    </div>
-                    <div>
-                      <app-select
-                        label="Field Type"
-                        [(ngModel)]="field.type"
-                        [options]="[
-                          { label: 'Text Input', value: 'text' },
-                          { label: 'Numeric', value: 'number' },
-                          { label: 'Multi-line Text', value: 'textarea' },
-                          { label: 'Dropdown Select', value: 'select' },
-                          { label: 'Radio Options', value: 'radio' },
-                          { label: 'Checkbox Toggle', value: 'checkbox' },
-                          { label: 'Date Picker', value: 'date' },
-                          { label: 'File Upload', value: 'file' }
-                        ]"
-                      ></app-select>
-                    </div>
-                  </div>
-
-                  @if (field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') {
-                    <app-input
-                      label="Options (comma-separated)"
-                      [value]="field.optionsStr || ''"
-                      (input)="field.optionsStr = $any($event.target).value"
-                    ></app-input>
-                  }
-
-                  <div class="flex items-center justify-between pt-1 gap-4">
-                    <div class="flex-1">
-                      <app-input
-                        label="Placeholder"
-                        [value]="field.placeholder || ''"
-                        (input)="field.placeholder = $any($event.target).value"
-                      ></app-input>
-                    </div>
-
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        [(ngModel)]="field.required"
-                        class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-                      />
-                      <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Required</span>
-                    </label>
-                  </div>
-                </div>
-              } @empty {
-                <div class="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-[8px]">
-                  No custom fields added yet.
-                </div>
-              }
-            </div>
-          </div>
-        </div>
-      </app-modal>
-
-      <app-modal
-        [isOpen]="isAddLeaveTypeModalOpen()"
-        title="Add Custom Leave Type"
-        [showFooter]="true"
-        primaryLabel="Add Leave Type"
-        secondaryLabel="Cancel"
-        [primaryDisabled]="!newLeaveTypeName().trim()"
-        (primaryAction)="addLeaveType()"
-        (secondaryAction)="closeAddLeaveTypeModal()"
-        (closed)="closeAddLeaveTypeModal()"
-      >
-        <div class="space-y-4">
-          <app-input
-            label="Leave Type Name"
-            placeholder="e.g. Maternity Leave, Bereavement Leave, Paternity Leave"
-            [value]="newLeaveTypeName()"
-            (input)="newLeaveTypeName.set($any($event.target).value)"
-          ></app-input>
-
-          <div class="grid grid-cols-2 gap-4">
-            <app-input
-              label="Yearly Quota (Days)"
-              type="number"
-              [value]="newLeaveTypeQuota()"
-              (input)="newLeaveTypeQuota.set($any($event.target).value)"
-            ></app-input>
-
-            <app-input
-              label="Monthly Limit (Days)"
-              type="number"
-              [value]="newLeaveTypeMonthlyLimit()"
-              (input)="newLeaveTypeMonthlyLimit.set($any($event.target).value)"
-            ></app-input>
-          </div>
-
-          <div class="pt-2">
-            <label class="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                [checked]="newLeaveTypeIsPaid()"
-                (change)="newLeaveTypeIsPaid.set($any($event.target).checked)"
-                class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-              />
-              <span class="text-xs font-semibold text-slate-900 dark:text-white">Paid Leave</span>
-            </label>
-          </div>
-        </div>
-      </app-modal>
-
-      <!-- Phase 3: Add / Edit Custom Salary Component & Formula Builder Modal -->
-      <app-modal
-        [isOpen]="isSalaryComponentModalOpen()"
-        [title]="editingSalaryCompId() ? 'Edit Salary Component & Formula' : 'Add Custom Salary Component'"
-        size="lg"
-        [showFooter]="true"
-        [primaryLabel]="editingSalaryCompId() ? 'Update Component' : 'Add Component'"
-        secondaryLabel="Cancel"
-        [primaryDisabled]="!compName().trim()"
-        (primaryAction)="saveSalaryComponent()"
-        (secondaryAction)="closeSalaryComponentModal()"
-        (closed)="closeSalaryComponentModal()"
-      >
-        <div class="space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="sm:col-span-2">
-              <app-input
-                label="Component Name"
-                placeholder="e.g. House Rent Allowance, Fuel Allowance, Provident Fund"
-                [value]="compName()"
-                (input)="compName.set($any($event.target).value)"
-              ></app-input>
-            </div>
-            <app-input
-              label="Short Code"
-              placeholder="e.g. HRA, FUEL, PF"
-              [value]="compCode()"
-              (input)="compCode.set($any($event.target).value)"
-            ></app-input>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <app-select
-              label="Component Type"
-              [ngModel]="compType()"
-              (ngModelChange)="compType.set($event)"
-              [options]="[
-                { label: 'Earning (+ Adds to Gross Pay)', value: 'EARNING' },
-                { label: 'Deduction (- Subtracts from Pay)', value: 'DEDUCTION' }
-              ]"
-            ></app-select>
-
-            <app-select
-              label="Calculation Method"
-              [ngModel]="compCalcType()"
-              (ngModelChange)="compCalcType.set($event)"
-              [options]="[
-                { label: 'Percentage of Base Salary (%)', value: 'PERCENTAGE_OF_BASE' },
-                { label: 'Fixed Monthly Amount', value: 'FIXED' },
-                { label: 'Dynamic Formula Expression', value: 'FORMULA' }
-              ]"
-            ></app-select>
-          </div>
-
-          @if (compCalcType() === 'FIXED' || compCalcType() === 'PERCENTAGE_OF_BASE') {
-            <app-input
-              [label]="compCalcType() === 'PERCENTAGE_OF_BASE' ? 'Percentage of Base Salary (%)' : 'Fixed Monthly Amount'"
-              type="number"
-              [value]="compValue()"
-              (input)="compValue.set($any($event.target).value)"
-            ></app-input>
-          } @else {
-            <div class="space-y-2.5 p-4 rounded-[8px] border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50">
-              <app-input
-                label="Formula Expression"
-                placeholder="e.g. BASE * 0.15 + PRESENT_DAYS * 10"
-                [value]="compFormula()"
-                (input)="compFormula.set($any($event.target).value)"
-              ></app-input>
-              <div>
-                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
-                  Click a variable or operator to insert into your formula:
-                </span>
-                <div class="flex flex-wrap gap-1.5">
-                  @for (token of formulaVariables; track token) {
-                    <button
-                      type="button"
-                      (click)="appendFormulaToken(token)"
-                      class="px-2 py-1 rounded text-[11px] font-mono font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[#2A65F6] hover:bg-blue-50 dark:hover:bg-blue-950/50 transition"
-                    >
-                      {{ token }}
-                    </button>
-                  }
-                </div>
-              </div>
-            </div>
-          }
-
-          <div class="flex items-center space-x-6 pt-2">
-            <label class="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                [checked]="compIsTaxable()"
-                (change)="compIsTaxable.set($any($event.target).checked)"
-                class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-              />
-              <span class="text-xs font-semibold text-slate-900 dark:text-white">Taxable Component</span>
-            </label>
-
-            <label class="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                [checked]="compEnabled()"
-                (change)="compEnabled.set($any($event.target).checked)"
-                class="rounded border-slate-300 text-[#2A65F6] focus:ring-[#2A65F6]/20"
-              />
-              <span class="text-xs font-semibold text-slate-900 dark:text-white">Active on Payslips</span>
-            </label>
-          </div>
-        </div>
-      </app-modal>
-
-      <!-- Live Salary Slip HTML Preview Modal -->
-      <app-modal
-        [isOpen]="isSlipPreviewModalOpen()"
-        title="Live Salary Slip Studio Preview (HTML → PDF Engine)"
-        size="xl"
-        [showFooter]="true"
-        primaryLabel="Open Printable View"
-        secondaryLabel="Close Preview"
-        (primaryAction)="openPreviewInNewWindow()"
-        (secondaryAction)="isSlipPreviewModalOpen.set(false)"
-        (closed)="isSlipPreviewModalOpen.set(false)"
-      >
-        <div class="space-y-3">
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2 rounded-[8px]">
-            <span>
-              Rendered as live HTML first using your current studio configuration before PDF conversion.
-            </span>
-            <span class="font-bold text-[#2A65F6]">
-              Layout: {{ settingsForm.get('payrollConfig.templateLayout')?.value || 'MODERN_EXECUTIVE' }}
-            </span>
-          </div>
-          <div class="border border-slate-200 dark:border-slate-700 rounded-[8px] overflow-hidden bg-slate-100 dark:bg-slate-950 max-h-[68vh] overflow-y-auto p-3">
-            @if (slipPreviewSafeHtml()) {
-              <div class="bg-white rounded shadow-sm overflow-hidden" [innerHTML]="slipPreviewSafeHtml()"></div>
-            } @else {
-              <div class="py-12 text-center text-xs text-slate-400">Generating live HTML preview...</div>
-            }
-          </div>
-        </div>
-      </app-modal>
-    </div>
-  `,
+  templateUrl: "./settings.component.html",
+  styleUrl: "./settings.component.scss",
 })
 export class SettingsComponent implements OnInit {
   private readonly api = inject(ApiService);
   readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly cdr = inject(ChangeDetectorRef);
+  readonly Math = Math;
 
   readonly isSaving = signal<boolean>(false);
   readonly saveSuccess = signal<boolean>(false);
@@ -2193,6 +330,7 @@ export class SettingsComponent implements OnInit {
     this.api
       .post<{ html: string; netSalary: number; netPayInWords: string }>('payroll/preview-html', {
         payrollConfigOverride: currentPayrollConfig,
+        templateConfig: currentPayrollConfig,
       })
       .subscribe({
         next: (res) => {
@@ -2282,6 +420,48 @@ export class SettingsComponent implements OnInit {
   readonly isCreatingDept = signal<boolean>(false);
 
   readonly branches = signal<BranchItem[]>([]);
+  readonly hasBranches = computed(() => this.branches().length > 0);
+  readonly hasDepartments = computed(() => this.departments().length > 0);
+  readonly gracePeriodUnit = signal<'minutes' | 'hours'>('minutes');
+
+  get displayedGracePeriod(): number {
+    const mins = Number(this.settingsForm.get('workingHours.lateGracePeriodMinutes')?.value || 0);
+    if (this.gracePeriodUnit() === 'hours') {
+      return parseFloat((mins / 60).toFixed(2));
+    }
+    return mins;
+  }
+
+  onGracePeriodInput(value: any): void {
+    const num = parseFloat(value) || 0;
+    if (this.gracePeriodUnit() === 'hours') {
+      this.settingsForm.patchValue({
+        workingHours: { lateGracePeriodMinutes: Math.round(num * 60) },
+      });
+    } else {
+      this.settingsForm.patchValue({
+        workingHours: { lateGracePeriodMinutes: Math.round(num) },
+      });
+    }
+  }
+
+  toggleGracePeriodUnit(unit: 'minutes' | 'hours'): void {
+    this.gracePeriodUnit.set(unit);
+    this.cdr.markForCheck();
+  }
+
+  private alertTimeout: any = null;
+
+  triggerAutoDismiss(): void {
+    if (this.alertTimeout) {
+      clearTimeout(this.alertTimeout);
+    }
+    this.alertTimeout = setTimeout(() => {
+      this.saveSuccess.set(false);
+      this.errorMessage.set(null);
+      this.cdr.markForCheck();
+    }, 4500);
+  }
   readonly isAddBranchModalOpen = signal<boolean>(false);
   readonly editingBranchId = signal<string | null>(null);
   readonly isSavingBranch = signal<boolean>(false);
@@ -2291,6 +471,71 @@ export class SettingsComponent implements OnInit {
   readonly subscription = signal<WorkspaceSubscription | null>(null);
   readonly isUpgrading = signal<string | null>(null);
   readonly isManagingBilling = signal<boolean>(false);
+
+  readonly seatStatus = signal<SeatStatusResponse | null>(null);
+  readonly isAddSeatsModalOpen = signal<boolean>(false);
+  readonly additionalSeatsCount = signal<number>(2);
+  readonly isExpandingSeats = signal<boolean>(false);
+  readonly addSeatsSuccessMessage = signal<string | null>(null);
+
+  // loadSeatStatus: fetches workspace seat count, active employees, and AI quotas
+  loadSeatStatus(): void {
+    this.api.get<SeatStatusResponse>('companies/seats/status').subscribe({
+      next: (res) => this.seatStatus.set(res),
+      error: () => {},
+    });
+  }
+
+  // openAddSeatsModal: displays modal to purchase incremental employee seats
+  openAddSeatsModal(): void {
+    this.additionalSeatsCount.set(2);
+    this.addSeatsSuccessMessage.set(null);
+    this.isAddSeatsModalOpen.set(true);
+  }
+
+  // closeAddSeatsModal: dismisses the add seats modal
+  closeAddSeatsModal(): void {
+    this.isAddSeatsModalOpen.set(false);
+  }
+
+  // setAdditionalSeatsCount: updates quantity of seats to purchase
+  setAdditionalSeatsCount(count: number): void {
+    this.additionalSeatsCount.set(Math.max(1, count));
+  }
+
+  // getAdditionalSeatsCost: calculates charge for only the additional seats
+  getAdditionalSeatsCost(): number {
+    const rate = this.seatStatus()?.pricePerSeat ?? 5;
+    return this.additionalSeatsCount() * rate;
+  }
+
+  // confirmAddSeats: submits request to expand seats and charges for incremental quantity
+  confirmAddSeats(): void {
+    const seats = this.additionalSeatsCount();
+    if (!seats || seats < 1) return;
+    this.isExpandingSeats.set(true);
+    this.api
+      .patch<{ success: boolean; totalSeats: number; chargedAmount: number }>(
+        'companies/seats/expand',
+        { additionalSeats: seats },
+      )
+      .subscribe({
+        next: (res) => {
+          this.isExpandingSeats.set(false);
+          this.addSeatsSuccessMessage.set(
+            `Successfully added ${seats} seats ($${res.chargedAmount} charged). Your workspace now accommodates ${res.totalSeats} seats.`,
+          );
+          this.loadSeatStatus();
+          setTimeout(() => {
+            this.closeAddSeatsModal();
+          }, 2000);
+        },
+        error: (err) => {
+          this.isExpandingSeats.set(false);
+          this.errorMessage.set(err?.error?.message || 'Failed to add seats');
+        },
+      });
+  }
 
   readonly isDeleteCompanyModalOpen = signal<boolean>(false);
   readonly isDeletingCompany = signal<boolean>(false);
@@ -2404,8 +649,8 @@ export class SettingsComponent implements OnInit {
       requireCnic: [false],
       requireAddress: [false],
       requireBankDetails: [false],
-      allowBranchDepartments: [true],
-      allowBranchCustomForms: [true],
+      allowBranchDepartments: [false],
+      allowBranchCustomForms: [false],
     }),
     payrollConfig: this.fb.group({
       lateFineType: ['PERCENTAGE'],
@@ -2488,6 +733,7 @@ export class SettingsComponent implements OnInit {
     this.loadDepartments();
     this.loadBranches();
     this.loadSubscription();
+    this.loadSeatStatus();
     this.loadOnboardingForms();
   }
 
@@ -2518,8 +764,8 @@ export class SettingsComponent implements OnInit {
             requireCnic: comp.onboardingConfig?.requireCnic ?? false,
             requireAddress: comp.onboardingConfig?.requireAddress ?? false,
             requireBankDetails: comp.onboardingConfig?.requireBankDetails ?? false,
-            allowBranchDepartments: comp.onboardingConfig?.allowBranchDepartments ?? true,
-            allowBranchCustomForms: comp.onboardingConfig?.allowBranchCustomForms ?? true,
+            allowBranchDepartments: comp.onboardingConfig?.allowBranchDepartments ?? false,
+            allowBranchCustomForms: comp.onboardingConfig?.allowBranchCustomForms ?? false,
           },
           payrollConfig: {
             lateFineType: comp.payrollConfig?.lateFineType || 'PERCENTAGE',
@@ -2771,6 +1017,7 @@ export class SettingsComponent implements OnInit {
     this.api
       .post<{ html: string; netSalary: number; netPayInWords: string }>('payroll/preview-html', {
         payrollConfigOverride: currentPayrollConfig,
+        templateConfig: currentPayrollConfig,
       })
       .subscribe({
         next: (res) => {
@@ -2851,6 +1098,7 @@ export class SettingsComponent implements OnInit {
       next: (updated) => {
         this.isSaving.set(false);
         this.saveSuccess.set(true);
+        this.triggerAutoDismiss();
         if (updated) {
           this.authService.updateCurrentCompany({
             name: updated.name,
@@ -2866,6 +1114,7 @@ export class SettingsComponent implements OnInit {
       error: (err) => {
         this.isSaving.set(false);
         this.errorMessage.set(err?.error?.message || 'Failed to update company settings');
+        this.triggerAutoDismiss();
       },
     });
   }

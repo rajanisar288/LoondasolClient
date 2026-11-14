@@ -1,0 +1,1785 @@
+<div
+      class="h-[calc(100vh-8rem)] flex bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
+    >
+      <div
+        class="w-80 sm:w-88 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-950/40 flex-shrink-0"
+      >
+        <div class="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold text-slate-900 dark:text-white">Messages & Teams</h2>
+            <div class="flex items-center space-x-1.5">
+              <button
+                type="button"
+                (click)="openNewChatModal()"
+                class="px-2.5 py-1 rounded-lg bg-[#2A65F6] hover:bg-[#1f50c8] text-white text-xs font-semibold shadow-sm transition flex items-center space-x-1"
+                title="Start a new 1v1 conversation"
+              >
+                <span>+</span>
+                <span>New Chat</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </span>
+            <input
+              type="text"
+              [(ngModel)]="searchFilter"
+              placeholder="Search conversations..."
+              class="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#2A65F6]"
+            />
+          </div>
+        </div>
+
+        @if (activeOnlineMembers().length > 0) {
+          <div
+            class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center space-x-1.5">
+                <span class="relative flex h-2 w-2">
+                  <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
+                  ></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                  Active Now ({{ activeOnlineMembers().length }})
+                </span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-3 overflow-x-auto py-1 px-0.5 scrollbar-none">
+              @for (m of activeOnlineMembers(); track m.employeeId) {
+                <button
+                  type="button"
+                  (click)="selectDirectUser(m)"
+                  class="flex flex-col items-center space-y-1 flex-shrink-0 group"
+                  [title]="m.firstName + ' ' + m.lastName + ' • Active now'"
+                >
+                  <app-avatar
+                    [src]="m.avatarUrl"
+                    [name]="m.firstName + ' ' + m.lastName"
+                    size="sm"
+                    status="online"
+                    class="group-hover:scale-105 transition transform"
+                  ></app-avatar>
+                  <span
+                    class="text-[10px] text-slate-700 dark:text-slate-300 font-semibold max-w-[52px] truncate"
+                  >
+                    {{ m.firstName }}
+                  </span>
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        @if (pinWarning()) {
+          <div
+            class="mx-3 mt-2 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-200 flex items-center justify-between"
+          >
+            <span>⚠️ {{ pinWarning() }}</span>
+          </div>
+        }
+
+        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+          @if (hasPinnedChats()) {
+            <div class="space-y-1">
+              <div
+                class="px-2 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center justify-between"
+              >
+                <span>Pinned ({{ pinnedChatKeys().length }}/3)</span>
+                <span class="text-xs">📌</span>
+              </div>
+
+              @for (pch of pinnedChannels(); track pch.name) {
+                <button
+                  type="button"
+                  (click)="selectChannel(pch.name)"
+                  [class]="
+                    !activeDirectUser() && activeChannel() === pch.name
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] font-semibold shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                  "
+                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition group"
+                >
+                  <div class="flex items-center space-x-2 truncate">
+                    <span class="text-slate-400 font-mono font-bold">{{ pch.isPrivate ? '🔒' : '#' }}</span>
+                    <span class="truncate">{{ pch.name }}</span>
+                  </div>
+                  <div class="flex items-center space-x-1">
+                    @if (getChannelUnread(pch.name) > 0) {
+                      <span
+                        class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#2A65F6] text-white"
+                      >
+                        {{ getChannelUnread(pch.name) }}
+                      </span>
+                    }
+                    <button
+                      type="button"
+                      (click)="togglePinChat('channel', pch.name, $event)"
+                      class="text-amber-500 hover:text-red-500 p-1 text-xs"
+                      title="Unpin channel"
+                    >
+                      📌
+                    </button>
+                  </div>
+                </button>
+              }
+
+              @for (pm of pinnedDirectMembers(); track pm.employeeId) {
+                <button
+                  type="button"
+                  (click)="selectDirectUser(pm)"
+                  [class]="
+                    activeDirectUser()?.userId === pm.userId
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] font-semibold shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                  "
+                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition group"
+                >
+                  <div class="flex items-center space-x-2 truncate">
+                    <app-avatar
+                      [src]="pm.avatarUrl"
+                      [name]="pm.firstName + ' ' + pm.lastName"
+                      size="xs"
+                      [status]="isUserOnline(pm.userId) ? 'online' : 'offline'"
+                    ></app-avatar>
+                    <span class="truncate">{{ pm.firstName }} {{ pm.lastName }}</span>
+                  </div>
+                  <div class="flex items-center space-x-1">
+                    @if (getDirectUnread(pm.userId) > 0) {
+                      <span
+                        class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#2A65F6] text-white"
+                      >
+                        {{ getDirectUnread(pm.userId) }}
+                      </span>
+                    }
+                    <button
+                      type="button"
+                      (click)="togglePinChat('user', pm.userId!, $event)"
+                      class="text-amber-500 hover:text-red-500 p-1 text-xs"
+                      title="Unpin conversation"
+                    >
+                      📌
+                    </button>
+                  </div>
+                </button>
+              }
+            </div>
+          }
+
+          <div class="space-y-1">
+            <div
+              class="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between"
+            >
+              <span>Channels</span>
+              @if (canCreateChannel()) {
+                <button
+                  type="button"
+                  (click)="openCreateChannelModal()"
+                  class="text-xs text-[#2A65F6] hover:text-[#1f50c8] font-bold px-1"
+                  title="Create new channel"
+                >
+                  + Add
+                </button>
+              }
+            </div>
+            @for (ch of filteredChannels(); track ch.channelId || ch.name) {
+              <button
+                type="button"
+                (click)="selectChannel(ch.name)"
+                [class]="
+                  !activeDirectUser() && activeChannel() === ch.name
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] font-semibold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                "
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition group"
+              >
+                <div class="flex items-center space-x-2 truncate">
+                  <span class="text-slate-400 font-mono font-bold">{{
+                    ch.isPrivate ? '🔒' : '#'
+                  }}</span>
+                  <span class="truncate">{{ ch.name }}</span>
+                </div>
+                <div class="flex items-center space-x-1.5 flex-shrink-0">
+                  @if (getChannelUnread(ch.name) > 0) {
+                    <span
+                      class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#2A65F6] text-white flex-shrink-0"
+                    >
+                      {{ getChannelUnread(ch.name) }}
+                    </span>
+                  }
+                  <button
+                    type="button"
+                    (click)="togglePinChat('channel', ch.name, $event)"
+                    [class.opacity-100]="isChatPinned('channel', ch.name)"
+                    [class.opacity-0]="!isChatPinned('channel', ch.name)"
+                    class="group-hover:opacity-100 text-slate-400 hover:text-amber-500 transition text-xs p-0.5"
+                    [title]="isChatPinned('channel', ch.name) ? 'Unpin channel' : 'Pin channel (max 3)'"
+                  >
+                    📌
+                  </button>
+                </div>
+              </button>
+            }
+          </div>
+
+          <div class="space-y-1 pt-1">
+            <div
+              class="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between"
+            >
+              <span>Direct Messages</span>
+              <span class="text-[10px] text-slate-400 lowercase font-normal">1v1</span>
+            </div>
+
+            @for (member of filteredMembers(); track member.employeeId) {
+              <button
+                type="button"
+                (click)="selectDirectUser(member)"
+                [class]="
+                  activeDirectUser()?.userId === member.userId
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] font-semibold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                "
+                class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition text-left group"
+              >
+                <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+                  <app-avatar
+                    [src]="member.avatarUrl"
+                    [name]="member.firstName + ' ' + member.lastName"
+                    size="sm"
+                    [status]="isSelfMember(member) || isUserOnline(member.userId) ? 'online' : 'offline'"
+                  ></app-avatar>
+
+                  <div class="truncate flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center space-x-1.5 truncate">
+                        <p class="truncate font-semibold text-slate-900 dark:text-white">
+                          {{ member.firstName }} {{ member.lastName }}
+                        </p>
+                        @if (isSelfMember(member)) {
+                          <span
+                            class="px-1.5 py-0.5 rounded-[6px] bg-blue-100 dark:bg-blue-900/50 text-[#2A65F6] dark:text-blue-300 text-[10px] font-bold flex-shrink-0"
+                          >
+                            You
+                          </span>
+                        }
+                      </div>
+                      <div class="flex items-center space-x-1.5 flex-shrink-0 ml-1">
+                        @if (member.lastMessageTime) {
+                          <span class="text-[10px] text-slate-400">
+                            {{ member.lastMessageTime | date: 'shortTime' }}
+                          </span>
+                        }
+                        @if (getDirectUnread(member.userId) > 0) {
+                          <span
+                            class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#2A65F6] text-white"
+                          >
+                            {{ getDirectUnread(member.userId) }}
+                          </span>
+                        }
+                        @if (member.userId) {
+                          <button
+                            type="button"
+                            (click)="togglePinChat('user', member.userId, $event)"
+                            [class.opacity-100]="isChatPinned('user', member.userId)"
+                            [class.opacity-0]="!isChatPinned('user', member.userId)"
+                            class="group-hover:opacity-100 text-slate-400 hover:text-amber-500 transition text-xs p-0.5"
+                            [title]="isChatPinned('user', member.userId) ? 'Unpin chat' : 'Pin chat (max 3)'"
+                          >
+                            📌
+                          </button>
+                        }
+                      </div>
+                    </div>
+
+                    <p class="text-[11px] text-slate-400 truncate mt-0.5">
+                      @if (member.lastMessageText) {
+                        <span
+                          >{{
+                            member.lastMessageSenderId === authService.currentUser()?.userId
+                              ? 'You: '
+                              : ''
+                          }}{{ member.lastMessageText }}</span
+                        >
+                      } @else if (isSelfMember(member)) {
+                        <span class="text-[#2A65F6]/80 dark:text-blue-400 font-medium">
+                          Message yourself • Save notes & files
+                        </span>
+                      } @else {
+                        <span
+                          [class]="
+                            isUserOnline(member.userId)
+                              ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                              : 'text-slate-400 dark:text-slate-500'
+                          "
+                        >
+                          {{ getUserLastSeenText(member.userId) }}
+                        </span>
+                      }
+                    </p>
+                  </div>
+                </div>
+              </button>
+            } @empty {
+              <div class="p-3 text-center text-xs text-slate-400">
+                No matching team members found.
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
+        <div
+          class="h-16 px-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0"
+        >
+          @if (activeDirectUser()) {
+            <button
+              type="button"
+              (click)="openUserProfileModal(activeDirectUser()!)"
+              class="flex items-center space-x-3 min-w-0 text-left group focus:outline-none"
+              title="Click to view user profile details"
+            >
+              <app-avatar
+                [src]="activeDirectUser()!.avatarUrl"
+                [name]="activeDirectUser()!.firstName + ' ' + activeDirectUser()!.lastName"
+                size="md"
+                [status]="
+                  isSelfMember(activeDirectUser()!) || isUserOnline(activeDirectUser()!.userId)
+                    ? 'online'
+                    : 'offline'
+                "
+              ></app-avatar>
+
+              <div class="min-w-0">
+                <div class="flex items-center space-x-2">
+                  <h3
+                    class="font-bold text-slate-900 dark:text-white group-hover:text-[#2A65F6] transition text-sm truncate"
+                  >
+                    {{ activeDirectUser()!.firstName }} {{ activeDirectUser()!.lastName }}
+                  </h3>
+                  @if (isSelfMember(activeDirectUser()!)) {
+                    <span
+                      class="px-2 py-0.5 rounded-[6px] bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold"
+                    >
+                      You
+                    </span>
+                  } @else if (isUserOnline(activeDirectUser()!.userId)) {
+                    <span
+                      class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-semibold"
+                    >
+                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Active now</span>
+                    </span>
+                  } @else {
+                    <span
+                      class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold"
+                    >
+                      <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                      <span>Offline</span>
+                    </span>
+                  }
+                </div>
+                <p class="text-xs text-slate-400 truncate flex items-center space-x-1.5 mt-0.5">
+                  @if (isSelfMember(activeDirectUser()!)) {
+                    <span class="text-[#2A65F6] dark:text-blue-400 font-medium">
+                      Personal Workspace • Save messages, files & tasks
+                    </span>
+                  } @else {
+                    <span>{{ activeDirectUser()!.designation || 'Team Member' }}</span>
+                    @if (!isUserOnline(activeDirectUser()!.userId)) {
+                      <span>•</span>
+                      <span class="text-slate-400 dark:text-slate-500">
+                        {{ getUserLastSeenText(activeDirectUser()!.userId) }}
+                      </span>
+                    }
+                  }
+                </p>
+              </div>
+            </button>
+
+            <div class="flex items-center space-x-2">
+              <button
+                type="button"
+                (click)="openUserProfileModal(activeDirectUser()!)"
+                class="px-3 py-[10px] rounded-[8px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center space-x-1.5 text-xs font-semibold"
+                title="View User Profile Details"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4 text-[#2A65F6]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+                <span class="hidden sm:inline">Profile</span>
+              </button>
+
+              @if (!isSelfMember(activeDirectUser()!)) {
+                <button
+                  type="button"
+                  (click)="startCall('audio')"
+                  class="p-2.5 rounded-[8px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition"
+                  title="Start Voice Call"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a11.042 11.042 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="startCall('video')"
+                  class="px-3 py-[10px] rounded-[8px] bg-[#2A65F6] hover:bg-[#1f50c8] text-white shadow-sm transition flex items-center space-x-1.5 text-xs font-semibold"
+                  title="Start Video Call"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span class="hidden sm:inline">Call</span>
+                </button>
+              }
+
+              <button
+                type="button"
+                (click)="goToMeetings()"
+                class="p-2.5 rounded-[8px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition"
+                title="Schedule Meeting"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
+            </div>
+          } @else {
+            <div class="flex items-center space-x-2">
+              <span class="text-slate-400 font-mono text-xl font-bold">#</span>
+              <div>
+                <h3 class="font-bold text-slate-900 dark:text-white text-base leading-tight">
+                  {{ activeChannel() }}
+                </h3>
+                <p class="text-xs text-slate-400">
+                  {{ getActiveChannelDesc() }}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              (click)="goToMeetings()"
+              class="px-3 py-[10px] rounded-[8px] border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center space-x-1.5"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+              <span>Instant Meeting</span>
+            </button>
+          }
+        </div>
+
+        @if (pinnedMessages().length > 0) {
+          <div
+            class="px-6 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200"
+          >
+            <div class="flex items-center space-x-2 truncate">
+              <span class="text-sm">📌</span>
+              <span class="font-bold">Pinned ({{ pinnedMessages().length }}):</span>
+              <span class="truncate italic text-slate-700 dark:text-slate-300">
+                "{{ pinnedMessages()[0].content || 'Voice Note / Attachment' }}"
+              </span>
+            </div>
+            <div class="flex items-center space-x-2 flex-shrink-0">
+              <button
+                type="button"
+                (click)="togglePinMessage(pinnedMessages()[0])"
+                class="text-amber-700 dark:text-amber-300 hover:underline font-semibold"
+                title="Unpin this message"
+              >
+                Unpin
+              </button>
+            </div>
+          </div>
+        }
+
+        <div #scrollContainer class="flex-1 overflow-y-auto p-6 space-y-5">
+          @for (msg of messages(); track msg.messageId) {
+            <div
+              [id]="'msg-' + msg.messageId"
+              [class]="
+                (isMyMessage(msg) ? 'flex flex-row-reverse space-x-reverse ' : 'flex ') +
+                (highlightedMessageId() === msg.messageId
+                  ? 'ring-2 ring-[#2A65F6] bg-blue-50/50 dark:bg-blue-950/30 rounded-[8px] p-2 -mx-2 transition-all'
+                  : 'transition-all')
+              "
+              class="items-start space-x-3"
+            >
+              <button
+                type="button"
+                (click)="openSenderProfileModal(msg)"
+                class="focus:outline-none flex-shrink-0"
+                title="View profile"
+              >
+                <app-avatar
+                  [src]="getSenderAvatar(msg.senderId)"
+                  [name]="msg.senderName"
+                  size="sm"
+                ></app-avatar>
+              </button>
+
+              <div
+                [class]="isMyMessage(msg) ? 'items-end' : 'items-start'"
+                class="flex flex-col max-w-xl space-y-1"
+              >
+                <div class="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    (click)="openSenderProfileModal(msg)"
+                    class="text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-[#2A65F6] transition focus:outline-none"
+                  >
+                    {{ isMyMessage(msg) ? 'You' : msg.senderName }}
+                  </button>
+                  <span class="text-[11px] text-slate-400">
+                    {{ msg.createdAt | date: 'shortTime' }}
+                  </span>
+                  @if (msg.isEdited) {
+                    <span class="text-[10px] text-slate-400 italic">(edited)</span>
+                  }
+                </div>
+
+                <div class="relative group">
+                  @if (editingMessageId === msg.messageId) {
+                    <div class="flex items-center space-x-2">
+                      <input
+                        [(ngModel)]="editingMessageText"
+                        (keydown.enter)="saveEditMessage()"
+                        (keydown.escape)="cancelEditMessage()"
+                        class="flex-1 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-[8px] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2A65F6]"
+                      />
+                      <button
+                        type="button"
+                        (click)="saveEditMessage()"
+                        class="text-[#2A65F6] hover:text-[#2154cc] text-xs font-semibold"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        (click)="cancelEditMessage()"
+                        class="text-slate-400 hover:text-slate-600 text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  } @else {
+                    @if (msg.isPinned) {
+                      <div class="flex items-center space-x-1 text-[10px] text-amber-600 dark:text-amber-400 font-bold mb-1">
+                        <span>📌</span>
+                        <span>Pinned</span>
+                      </div>
+                    }
+
+                    @if (msg.replyTo) {
+                      <button
+                        type="button"
+                        (click)="scrollToMessage(msg.replyTo.messageId)"
+                        [class]="
+                          isMyMessage(msg)
+                            ? 'bg-[#1f50c8]/90 text-blue-50 border-white/50'
+                            : 'bg-slate-200/70 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border-[#2A65F6]'
+                        "
+                        class="w-full text-left px-3 py-1.5 mb-1 rounded-[8px] border-l-4 text-xs flex flex-col hover:opacity-90 transition"
+                        title="Click to jump to original message"
+                      >
+                        <span class="font-bold text-[11px] flex items-center space-x-1">
+                          <span>↩</span>
+                          <span>{{
+                            msg.replyTo.senderId === authService.currentUser()?.userId
+                              ? 'You'
+                              : msg.replyTo.senderName
+                          }}</span>
+                        </span>
+                        <span class="truncate opacity-90 text-[11px] mt-0.5">
+                          {{
+                            msg.replyTo.content ||
+                              (msg.replyTo.attachmentName
+                                ? '📎 ' + msg.replyTo.attachmentName
+                                : 'Quoted message')
+                          }}
+                        </span>
+                      </button>
+                    }
+
+                    @if (msg.type === 'VOICE' || hasAudioAttachment(msg)) {
+                      <div class="flex items-center space-x-2 py-2 px-3 rounded-[8px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm mb-1.5">
+                        <span class="text-base">🎙️</span>
+                        <audio controls class="h-8 max-w-[200px] sm:max-w-[240px]" [src]="getAudioUrl(msg)"></audio>
+                        @if (msg.audioDurationSeconds) {
+                          <span class="text-[11px] font-mono text-slate-500 font-medium">
+                            {{ formatAudioDuration(msg.audioDurationSeconds) }}
+                          </span>
+                        }
+                      </div>
+                    }
+
+                    @if (msg.content) {
+                      <div
+                        [class]="
+                          isMyMessage(msg)
+                            ? 'bg-[#2A65F6] text-white rounded-[8px] rounded-tr-none'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-[8px] rounded-tl-none'
+                        "
+                        class="px-4 py-2.5 text-sm shadow-sm break-words leading-relaxed"
+                        [innerHTML]="formatRichMessage(msg.content, isMyMessage(msg))"
+                      ></div>
+                    }
+
+                    @if (msg.attachments && msg.attachments.length > 0 && msg.type !== 'VOICE') {
+                      <div class="space-y-1.5 mt-1">
+                        @for (att of msg.attachments; track att.url) {
+                          @if (isImageAttachment(att)) {
+                            <div
+                              class="rounded-[8px] overflow-hidden border border-slate-200 dark:border-slate-700 max-w-xs shadow-sm"
+                            >
+                              <a [href]="att.url" target="_blank" rel="noopener noreferrer">
+                                <img
+                                  [src]="att.url"
+                                  [alt]="att.fileName"
+                                  class="w-full h-auto max-h-60 object-cover"
+                                />
+                              </a>
+                            </div>
+                          } @else if (!att.fileType.startsWith('audio/')) {
+                            <a
+                              [href]="att.url"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="flex items-center space-x-2.5 p-3 rounded-[8px] border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition text-xs text-slate-900 dark:text-white"
+                            >
+                              <span class="text-lg">📄</span>
+                              <div class="truncate">
+                                <p class="font-semibold truncate max-w-[200px]">
+                                  {{ att.fileName }}
+                                </p>
+                                <p class="text-[10px] text-slate-400">
+                                  {{
+                                    att.fileSize
+                                      ? (att.fileSize / 1024 | number: '1.0-1') + ' KB'
+                                      : 'File attachment'
+                                  }}
+                                </p>
+                              </div>
+                            </a>
+                          }
+                        }
+                      </div>
+                    }
+
+                    @if (msg.reactions && msg.reactions.length > 0) {
+                      <div
+                        [class]="isMyMessage(msg) ? 'justify-end' : 'justify-start'"
+                        class="flex flex-wrap gap-1 mt-1.5"
+                      >
+                        @for (react of msg.reactions; track react.emoji) {
+                          <button
+                            type="button"
+                            (click)="toggleReaction(msg, react.emoji)"
+                            [class]="
+                              hasReacted(react.userIds)
+                                ? 'bg-blue-50 dark:bg-blue-950/70 border-[#2A65F6] text-[#2A65F6] dark:text-blue-300'
+                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                            "
+                            class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full border text-xs font-medium shadow-xs hover:scale-105 transition"
+                          >
+                            <span>{{ react.emoji }}</span>
+                            <span class="text-[10px] font-bold">{{ react.userIds.length }}</span>
+                          </button>
+                        }
+                      </div>
+                    }
+
+                    <div
+                      [class]="
+                        isMyMessage(msg)
+                          ? 'right-0 -top-4 absolute opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[8px] shadow-md px-1.5 py-0.5 z-20'
+                          : 'left-0 -top-4 absolute opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[8px] shadow-md px-1.5 py-0.5 z-20'
+                      "
+                    >
+                      @for (quickEmoji of quickReactionEmojis.slice(0, 5); track quickEmoji) {
+                        <button
+                          type="button"
+                          (click)="toggleReaction(msg, quickEmoji)"
+                          class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-xs transition transform hover:scale-110"
+                          [title]="'React with ' + quickEmoji"
+                        >
+                          {{ quickEmoji }}
+                        </button>
+                      }
+
+                      <span class="h-3.5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5"></span>
+
+                      <button
+                        type="button"
+                        (click)="startReplyMessage(msg)"
+                        class="p-1 text-slate-500 hover:text-[#2A65F6] hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors flex items-center space-x-0.5 text-[11px] font-semibold"
+                        title="Reply to message"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                          />
+                        </svg>
+                      </button>
+
+                      <button
+                        type="button"
+                        (click)="togglePinMessage(msg)"
+                        class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-xs"
+                        [class]="msg.isPinned ? 'text-amber-500 hover:text-amber-600' : 'text-slate-400 hover:text-amber-500'"
+                        [title]="msg.isPinned ? 'Unpin message' : 'Pin message'"
+                      >
+                        📌
+                      </button>
+
+                      @if (canEditDelete(msg)) {
+                        @if (isMyMessage(msg) && msg.content) {
+                          <button
+                            type="button"
+                            (click)="startEditMessage(msg)"
+                            class="p-1 text-slate-400 hover:text-[#2A65F6] hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                            title="Edit message"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              stroke-width="2"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          (click)="deleteMessage(msg)"
+                          class="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Delete message"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-3.5 w-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          } @empty {
+            <div class="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
+              <div
+                class="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shadow-inner"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-8 w-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+              </div>
+              <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                @if (activeDirectUser() && isSelfMember(activeDirectUser()!)) {
+                  Your Personal Workspace (You)
+                } @else if (activeDirectUser()) {
+                  Private conversation with {{ activeDirectUser()!.firstName }}
+                } @else {
+                  No messages in #{{ activeChannel() }}
+                }
+              </p>
+              <p class="text-xs text-slate-400 max-w-sm text-center">
+                @if (activeDirectUser() && isSelfMember(activeDirectUser()!)) {
+                  Draft messages, save important files, links, code snippets, or task notes here.
+                } @else {
+                  Send rich formatted messages, mention teammates with &#64;, react with emojis, or share files.
+                }
+              </p>
+            </div>
+          }
+        </div>
+
+        @if (typingUser()) {
+          <div class="px-6 py-1.5 text-xs text-slate-400 flex items-center space-x-2 animate-pulse">
+            <span class="font-medium">{{ typingUser() }} is typing</span>
+            <span class="flex space-x-0.5">
+              <span class="w-1 h-1 bg-slate-400 rounded-full animate-bounce"></span>
+              <span class="w-1 h-1 bg-slate-400 rounded-full animate-bounce delay-100"></span>
+              <span class="w-1 h-1 bg-slate-400 rounded-full animate-bounce delay-200"></span>
+            </span>
+          </div>
+        }
+
+        @if (replyingToMessage(); as replyMsg) {
+          <div
+            class="px-6 py-2 border-t border-slate-200 dark:border-slate-800 bg-blue-50/70 dark:bg-blue-950/40 flex items-center justify-between"
+          >
+            <div class="flex items-center space-x-2.5 min-w-0 border-l-4 border-[#2A65F6] pl-2.5">
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-[#2A65F6] flex items-center space-x-1">
+                  <span>Replying to</span>
+                  <span>{{ isMyMessage(replyMsg) ? 'yourself' : replyMsg.senderName }}</span>
+                </p>
+                <p class="text-xs text-slate-600 dark:text-slate-300 truncate max-w-md">
+                  {{
+                    replyMsg.content ||
+                      (replyMsg.attachments && replyMsg.attachments.length > 0
+                        ? '📎 ' + replyMsg.attachments[0].fileName
+                        : '🎙️ Voice Note')
+                  }}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              (click)="cancelReplyMessage()"
+              class="p-1 rounded-[8px] text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition text-xs font-bold"
+              title="Cancel reply"
+            >
+              ✕
+            </button>
+          </div>
+        }
+
+        @if (pendingAttachments.length > 0) {
+          <div
+            class="px-6 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center space-x-2 overflow-x-auto"
+          >
+            @for (att of pendingAttachments; track att.fileName; let i = $index) {
+              <div
+                class="flex items-center space-x-1.5 px-3 py-1 rounded-[8px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 shadow-sm flex-shrink-0"
+              >
+                <span>{{ att.fileType.startsWith('image/') ? '🖼️' : '📎' }}</span>
+                <span class="max-w-[120px] truncate font-medium">{{ att.fileName }}</span>
+                <button
+                  type="button"
+                  (click)="removePendingAttachment(i)"
+                  class="text-slate-400 hover:text-red-500 font-bold ml-1"
+                >
+                  ✕
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 relative">
+          @if (showMentionMenu() && filteredMentionCandidates().length > 0) {
+            <div
+              class="absolute left-4 bottom-full mb-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[8px] shadow-xl overflow-hidden z-40"
+            >
+              <div
+                class="px-3 py-1.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-700 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between"
+              >
+                <span>Mention Teammate</span>
+                <span>↑↓ Enter</span>
+              </div>
+              <div class="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
+                @for (cand of filteredMentionCandidates(); track cand.employeeId; let idx = $index) {
+                  <button
+                    type="button"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="selectMentionCandidate(cand)"
+                    [class]="
+                      idx === mentionSelectedIndex()
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6]'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-800 dark:text-slate-200'
+                    "
+                    class="w-full px-3 py-2 text-left text-xs flex items-center space-x-2.5 transition"
+                  >
+                    <app-avatar
+                      [src]="cand.avatarUrl"
+                      [name]="cand.firstName + ' ' + cand.lastName"
+                      size="xs"
+                      [status]="isUserOnline(cand.userId) ? 'online' : null"
+                    ></app-avatar>
+                    <div class="min-w-0 flex-1">
+                      <p class="font-semibold truncate">
+                        {{ cand.firstName }} {{ cand.lastName }}
+                        @if (isSelfMember(cand)) {
+                          <span class="text-[10px] text-[#2A65F6] font-bold ml-1">(You)</span>
+                        }
+                      </p>
+                      <p class="text-[10px] text-slate-400 truncate">
+                        {{ cand.designation || cand.email || 'Team Member' }}
+                      </p>
+                    </div>
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          @if (isEmojiPickerOpen()) {
+            <div
+              class="absolute right-4 bottom-full mb-2 w-80 sm:w-96 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[8px] shadow-2xl overflow-hidden z-40"
+            >
+              <div class="p-2.5 border-b border-slate-100 dark:border-slate-700 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Emojis & Reactions
+                  </span>
+                  <button
+                    type="button"
+                    (click)="closeEmojiPicker()"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  [(ngModel)]="emojiSearchQuery"
+                  placeholder="Search emojis (e.g. rocket, fire, heart, smile)..."
+                  class="w-full px-2.5 py-1.5 text-xs rounded-[8px] border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:border-[#2A65F6]"
+                />
+                @if (!emojiSearchQuery.trim()) {
+                  <div class="flex items-center justify-between pt-0.5">
+                    @for (cat of emojiCategories; track cat.id) {
+                      <button
+                        type="button"
+                        (mousedown)="$event.preventDefault()"
+                        (click)="activeEmojiCategory.set(cat.id)"
+                        [class]="
+                          activeEmojiCategory() === cat.id
+                            ? 'bg-blue-50 dark:bg-blue-950/60 border-[#2A65F6] scale-105'
+                            : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
+                        "
+                        class="px-2 py-1 rounded-[8px] border text-sm transition"
+                        [title]="cat.label"
+                      >
+                        {{ cat.icon }}
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+
+              <div class="p-2.5 max-h-60 overflow-y-auto">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  {{ emojiSearchQuery.trim() ? 'Search Results' : getActiveEmojiCategoryLabel() }}
+                </p>
+                <div class="grid grid-cols-8 gap-1">
+                  @for (em of filteredEmojis(); track em.char) {
+                    <button
+                      type="button"
+                      (mousedown)="$event.preventDefault()"
+                      (click)="insertEmoji(em.char)"
+                      class="h-8 w-8 flex items-center justify-center rounded-[8px] hover:bg-slate-100 dark:hover:bg-slate-700 text-lg transition transform hover:scale-110"
+                      [title]="em.name"
+                    >
+                      {{ em.char }}
+                    </button>
+                  } @empty {
+                    <div class="col-span-8 py-6 text-center text-xs text-slate-400">
+                      No emojis found matching "{{ emojiSearchQuery }}"
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (isRecordingAudio()) {
+            <div
+              class="flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-[8px]"
+            >
+              <div class="flex items-center space-x-2.5">
+                <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+                <span class="text-xs font-bold text-red-600 dark:text-red-400">
+                  Recording Voice Note...
+                </span>
+                <span class="text-xs font-mono font-bold text-slate-700 dark:text-slate-200">
+                  {{ formatAudioDuration(recordingSeconds()) }}
+                </span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button
+                  type="button"
+                  (click)="cancelAudioRecording()"
+                  class="px-3 py-[10px] text-xs text-slate-500 hover:text-red-600 font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  (click)="stopAndSendAudioRecording()"
+                  class="px-3.5 py-[10px] bg-red-600 hover:bg-red-700 text-white rounded-[8px] text-xs font-bold shadow-sm transition"
+                >
+                  Send Audio
+                </button>
+              </div>
+            </div>
+          } @else {
+            <div
+              class="rounded-[8px] border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 focus-within:border-[#2A65F6] focus-within:ring-2 focus-within:ring-[#2A65F6]/10 transition overflow-hidden"
+            >
+              <div
+                class="flex items-center flex-wrap gap-0.5 px-2.5 py-1.5 border-b border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300"
+              >
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('bold')"
+                  [class]="
+                    isFormatActive('bold')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-xs font-bold transition"
+                  title="Bold (Ctrl+B)"
+                >
+                  B
+                </button>
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('italic')"
+                  [class]="
+                    isFormatActive('italic')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-xs italic font-serif transition"
+                  title="Italic (Ctrl+I)"
+                >
+                  I
+                </button>
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('strike')"
+                  [class]="
+                    isFormatActive('strike')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-xs line-through transition"
+                  title="Strikethrough (Ctrl+Shift+X)"
+                >
+                  S
+                </button>
+
+                <span class="h-3.5 w-px bg-slate-200 dark:bg-slate-700 mx-1"></span>
+
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('code')"
+                  [class]="
+                    isFormatActive('code')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-[11px] font-mono font-semibold transition"
+                  title="Inline code"
+                >
+                  &lt;/&gt;
+                </button>
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('codeblock')"
+                  [class]="
+                    isFormatActive('codeblock')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-[11px] font-mono transition"
+                  title="Code block"
+                >
+                  &#123; &#125;
+                </button>
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('quote')"
+                  [class]="
+                    isFormatActive('quote')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-xs font-bold transition"
+                  title="Blockquote (> quote)"
+                >
+                  ❝
+                </button>
+
+                <span class="h-3.5 w-px bg-slate-200 dark:bg-slate-700 mx-1"></span>
+
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('bullet')"
+                  [class]="
+                    isFormatActive('bullet')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-xs font-semibold transition"
+                  title="Bulleted list (Shift+Enter continues list)"
+                >
+                  • List
+                </button>
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('numbered')"
+                  [class]="
+                    isFormatActive('numbered')
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] dark:text-blue-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                  "
+                  class="px-2 py-1 rounded text-xs font-semibold transition"
+                  title="Numbered list (Shift+Enter continues list)"
+                >
+                  1. List
+                </button>
+                <button
+                  type="button"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="applyRichFormat('link')"
+                  class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-xs transition"
+                  title="Insert link"
+                >
+                  🔗
+                </button>
+              </div>
+
+              <div
+                #messageInput
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+                (input)="onComposerInput($event)"
+                (keydown)="onComposerKeydown($event)"
+                (keyup)="syncComposerCursor()"
+                (mouseup)="syncComposerCursor()"
+                (paste)="onComposerPaste($event)"
+                [attr.data-placeholder]="
+                  activeDirectUser() && isSelfMember(activeDirectUser()!)
+                    ? 'Write a note, paste code, or save files to your personal space...'
+                    : activeDirectUser()
+                      ? 'Message ' + activeDirectUser()!.firstName + '... (Type @ to mention, Shift+Enter for new line)'
+                      : 'Message #' + activeChannel() + '... (Type @ to mention teammates)'
+                "
+                class="chat-rich-editor w-full min-h-[52px] max-h-44 px-3.5 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white focus:outline-none overflow-y-auto leading-relaxed break-words"
+              ></div>
+
+              <div
+                class="flex items-center justify-between px-2.5 py-1.5 border-t border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30"
+              >
+                <div class="flex items-center space-x-1">
+                  <input type="file" #fileInput (change)="onFileSelected($event)" class="hidden" />
+                  <button
+                    type="button"
+                    (click)="fileInput.click()"
+                    [disabled]="isUploadingFile()"
+                    class="p-2 rounded-[8px] hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition"
+                    title="Attach File or Image"
+                  >
+                    @if (isUploadingFile()) {
+                      <span
+                        class="w-4 h-4 border-2 border-[#2A65F6] border-t-transparent rounded-full animate-spin inline-block"
+                      ></span>
+                    } @else {
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                        />
+                      </svg>
+                    }
+                  </button>
+
+                  <button
+                    type="button"
+                    (click)="startAudioRecording()"
+                    class="p-2 rounded-[8px] hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition"
+                    title="Record Voice Note"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                      />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="triggerMentionFromToolbar()"
+                    class="px-2 py-1.5 rounded-[8px] hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition"
+                    title="Mention someone (@)"
+                  >
+                    &#64;
+                  </button>
+
+                  <button
+                    type="button"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="toggleEmojiPicker()"
+                    [class.bg-blue-50]="isEmojiPickerOpen()"
+                    [class.text-[#2A65F6]]="isEmojiPickerOpen()"
+                    class="px-2 py-1.5 rounded-[8px] hover:bg-slate-200/70 dark:hover:bg-slate-700 text-sm transition"
+                    title="Open Emoji Picker"
+                  >
+                    😊
+                  </button>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                  <span class="hidden md:inline text-[10px] text-slate-400">
+                    <strong>Enter</strong> to send · <strong>Shift+Enter</strong> for new line
+                  </span>
+                  <button
+                    type="button"
+                    (click)="sendMessage()"
+                    [disabled]="!newMessageText.trim() && pendingAttachments.length === 0"
+                    class="px-4 py-[10px] bg-[#2A65F6] hover:bg-[#1f50c8] disabled:opacity-50 text-white rounded-[8px] font-semibold text-xs transition flex items-center space-x-1.5 shadow-sm"
+                  >
+                    <span>Send</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <app-modal
+      [isOpen]="isNewChatModalOpen()"
+      title="Start New Direct Message"
+      (closed)="closeNewChatModal()"
+    >
+      <div class="space-y-4">
+        <input
+          type="text"
+          [(ngModel)]="newChatSearch"
+          placeholder="Type to search team members..."
+          class="input-control"
+        />
+
+        <div
+          (scroll)="onNewChatScroll($event)"
+          class="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-[8px]"
+        >
+          @for (m of filteredNewChatMembers(); track m.employeeId) {
+            <button
+              type="button"
+              (click)="startChatWithMember(m)"
+              class="w-full p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center space-x-3 transition text-left"
+            >
+              <app-avatar
+                [src]="m.avatarUrl"
+                [name]="m.firstName + ' ' + m.lastName"
+                size="sm"
+                [status]="isSelfMember(m) || isUserOnline(m.userId) ? 'online' : null"
+              ></app-avatar>
+
+              <div class="truncate flex-1 min-w-0">
+                <div class="flex items-center space-x-2">
+                  <p class="font-semibold text-xs text-slate-900 dark:text-white truncate">
+                    {{ m.firstName }} {{ m.lastName }}
+                  </p>
+                  @if (isSelfMember(m)) {
+                    <span
+                      class="px-1.5 py-0.5 rounded-[6px] bg-blue-100 dark:bg-blue-900/50 text-[#2A65F6] dark:text-blue-300 text-[10px] font-bold"
+                    >
+                      You
+                    </span>
+                  } @else if (isUserOnline(m.userId)) {
+                    <span
+                      class="px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold"
+                    >
+                      Active now
+                    </span>
+                  }
+                </div>
+                <p class="text-[10px] text-slate-400 truncate">
+                  @if (isSelfMember(m)) {
+                    Message yourself • Save notes & files
+                  } @else {
+                    {{ m.designation || m.departmentName || 'Team Member' }}
+                    @if (!isUserOnline(m.userId)) {
+                      <span class="mx-1">•</span>
+                      <span>{{ getUserLastSeenText(m.userId) }}</span>
+                    }
+                  }
+                </p>
+              </div>
+              <span class="text-xs text-[#2A65F6] font-semibold">Message →</span>
+            </button>
+          } @empty {
+            <div class="p-6 text-center text-xs text-slate-400">No matching colleagues found.</div>
+          }
+
+          @if (filteredNewChatMembers().length < filteredNewChatTotal()) {
+            <button
+              type="button"
+              (click)="loadMoreNewChatMembers()"
+              class="w-full py-2.5 text-center text-xs font-semibold text-[#2A65F6] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition"
+            >
+              Load More ({{ filteredNewChatTotal() - filteredNewChatMembers().length }} remaining)...
+            </button>
+          }
+        </div>
+
+        <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+          <span>Showing {{ filteredNewChatMembers().length }} of {{ filteredNewChatTotal() }} employees</span>
+          <span>Scroll down to load more</span>
+        </div>
+      </div>
+    </app-modal>
+
+    <app-modal
+      [isOpen]="isCreateChannelModalOpen()"
+      title="Create New Team Channel"
+      (closed)="closeCreateChannelModal()"
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Channel Name <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-mono"
+              >#</span
+            >
+            <input
+              type="text"
+              [(ngModel)]="newChannelName"
+              placeholder="e.g. project-apollo, design-sync"
+              class="input-control pl-7"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Description
+          </label>
+          <input
+            type="text"
+            [(ngModel)]="newChannelDescription"
+            placeholder="Purpose of this channel..."
+            class="input-control"
+          />
+        </div>
+
+        <div class="flex items-center space-x-2 pt-2">
+          <input
+            type="checkbox"
+            id="isPrivateCheck"
+            [(ngModel)]="newChannelIsPrivate"
+            class="rounded text-[#2A65F6] focus:ring-[#2A65F6]"
+          />
+          <label
+            for="isPrivateCheck"
+            class="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
+          >
+            Make channel private (only invited members can view)
+          </label>
+        </div>
+
+        @if (newChannelIsPrivate) {
+          <div class="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Invite Members by Email or Name
+            </label>
+
+            @if (selectedChannelMembers.length > 0) {
+              <div
+                class="flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 max-h-28 overflow-y-auto"
+              >
+                @for (
+                  m of selectedChannelMembers;
+                  track m.userId || m.employeeId;
+                  let idx = $index
+                ) {
+                  <span
+                    class="inline-flex items-center space-x-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-[#2A65F6] dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-full text-xs font-medium"
+                  >
+                    <span>{{ m.firstName }} {{ m.lastName }} ({{ m.email }})</span>
+                    <button
+                      type="button"
+                      (click)="removeChannelMember(idx)"
+                      class="ml-1 text-slate-400 hover:text-red-500 rounded-full focus:outline-none"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                }
+              </div>
+            }
+
+            <div class="relative">
+              <input
+                type="text"
+                [(ngModel)]="channelMemberSearch"
+                placeholder="Search colleagues by email or name..."
+                class="input-control text-xs"
+              />
+
+              @if (channelMemberSearch.trim() && filteredChannelMembers.length > 0) {
+                <div
+                  class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 divide-y divide-slate-100 dark:divide-slate-700"
+                >
+                  @for (
+                    colleague of filteredChannelMembers;
+                    track colleague.userId || colleague.employeeId
+                  ) {
+                    <button
+                      type="button"
+                      (click)="addChannelMember(colleague)"
+                      class="w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition"
+                    >
+                      <div>
+                        <p class="font-medium text-slate-800 dark:text-slate-200">
+                          {{ colleague.firstName }} {{ colleague.lastName }}
+                        </p>
+                        <p class="text-[11px] text-slate-400">{{ colleague.email }}</p>
+                      </div>
+                      <span class="text-[#2A65F6] font-semibold">+ Add</span>
+                    </button>
+                  }
+                </div>
+              } @else if (channelMemberSearch.trim() && filteredChannelMembers.length === 0) {
+                <div
+                  class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-3 z-50 text-xs text-slate-400 text-center"
+                >
+                  No colleagues found matching "{{ channelMemberSearch }}".
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <div
+          class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-slate-800"
+        >
+          <app-button variant="secondary" type="button" (click)="closeCreateChannelModal()"
+            >Cancel</app-button
+          >
+          <app-button type="button" [loading]="isCreatingChannel()" (click)="createChannel()"
+            >Create Channel</app-button
+          >
+        </div>
+      </div>
+    </app-modal>
+
+    <app-modal
+      [isOpen]="isUserProfileModalOpen()"
+      title="User Profile Details"
+      size="md"
+      (closed)="closeUserProfileModal()"
+    >
+      @if (selectedProfileMember(); as profile) {
+        <div class="space-y-5">
+          <div
+            class="flex items-center space-x-4 p-4 rounded-[8px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80"
+          >
+            <app-avatar
+              [src]="profile.avatarUrl"
+              [name]="profile.firstName + ' ' + profile.lastName"
+              size="lg"
+              [status]="isUserOnline(profile.userId) ? 'online' : 'offline'"
+            ></app-avatar>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">
+                  {{ profile.firstName }} {{ profile.lastName }}
+                </h3>
+                <span
+                  [class]="
+                    isUserOnline(profile.userId)
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  "
+                  class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 text-[11px] font-semibold rounded-full border"
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full"
+                    [class]="isUserOnline(profile.userId) ? 'bg-emerald-500' : 'bg-slate-400'"
+                  ></span>
+                  <span>{{ getUserLastSeenText(profile.userId) }}</span>
+                </span>
+              </div>
+              <p class="text-xs font-semibold text-[#2A65F6] mt-0.5">
+                {{ profile.designation || 'Team Member' }}
+              </p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                {{ profile.email }}
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              class="p-3 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+              <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Email Address
+              </span>
+              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1 break-all">
+                {{ profile.email || 'Not available' }}
+              </p>
+            </div>
+
+            <div
+              class="p-3 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+              <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Phone Number
+              </span>
+              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">
+                {{ profile.phone || 'Not provided' }}
+              </p>
+            </div>
+
+            <div
+              class="p-3 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+              <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Department
+              </span>
+              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">
+                {{ profile.departmentName || 'General' }}
+              </p>
+            </div>
+
+            <div
+              class="p-3 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+              <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Branch
+              </span>
+              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">
+                {{ profile.branchName || 'Headquarters' }}
+              </p>
+            </div>
+
+            <div
+              class="p-3 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+              <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Employment Type
+              </span>
+              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">
+                {{ formatEmploymentType(profile.employmentType) }}
+              </p>
+            </div>
+
+            <div
+              class="p-3 rounded-[8px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+              <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Joining Date
+              </span>
+              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">
+                {{ profile.joiningDate ? (profile.joiningDate | date: 'mediumDate') : 'Active Member' }}
+              </p>
+            </div>
+          </div>
+
+          <div
+            class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800"
+          >
+            @if (profile.userId && profile.userId !== authService.currentUser()?.userId) {
+              <div class="flex items-center space-x-2">
+                <button
+                  type="button"
+                  (click)="startCallFromProfile(profile, 'audio')"
+                  class="px-3 py-[10px] rounded-[8px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition flex items-center space-x-1.5"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a11.042 11.042 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
+                  </svg>
+                  <span>Voice Call</span>
+                </button>
+                <button
+                  type="button"
+                  (click)="startCallFromProfile(profile, 'video')"
+                  class="px-3 py-[10px] rounded-[8px] bg-[#2A65F6] hover:bg-[#1f50c8] text-white text-xs font-semibold transition flex items-center space-x-1.5"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span>Video Call</span>
+                </button>
+              </div>
+            } @else {
+              <div></div>
+            }
+
+            <app-button variant="secondary" type="button" (click)="closeUserProfileModal()">
+              Close
+            </app-button>
+          </div>
+        </div>
+      }
+    </app-modal>

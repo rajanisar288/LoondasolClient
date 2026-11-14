@@ -1,0 +1,32 @@
+<div
+      class="relative inline-flex items-center justify-center select-none flex-shrink-0 font-semibold uppercase"
+      [ngClass]="[getSizeClass(), getShapeClass()]"
+      [title]="name || ''"
+    >
+      <div
+        class="w-full h-full flex items-center justify-center overflow-hidden"
+        [ngClass]="[getShapeClass(), !hasValidImage() ? getBgColorClass() : 'bg-slate-200 dark:bg-slate-700']"
+      >
+        @if (hasValidImage()) {
+          <img
+            [src]="src"
+            [alt]="name || 'Avatar'"
+            (error)="onImageError()"
+            class="w-full h-full object-cover"
+            loading="lazy"
+          />
+        } @else {
+          <span class="text-white tracking-wider font-medium" [ngClass]="getTextSizeClass()">
+            {{ initials() }}
+          </span>
+        }
+      </div>
+
+      @if (status) {
+        <span
+          class="absolute -bottom-0.5 -right-0.5 rounded-full border-white dark:border-slate-900 shadow-xs z-10"
+          [ngClass]="[getStatusClass(), getStatusSizeClass()]"
+          [title]="status === 'online' ? 'Active now' : 'Offline'"
+        ></span>
+      }
+    </div>

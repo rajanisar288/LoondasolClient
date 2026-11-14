@@ -1,6 +1,7 @@
 import {
   Component,
   OnInit,
+  OnDestroy,
   inject,
   signal,
   computed,
@@ -11,6 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { environment } from '../../../environments/environment';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AppButtonComponent } from '../../shared/components/button/button.component';
@@ -70,6 +72,14 @@ export interface RoleItem {
   updatedAt?: string;
 }
 
+export interface SeatStatusResponse {
+  purchasedSeats: number;
+  totalActiveSeats: number;
+  availableSeats: number;
+  plan: string;
+  pricePerSeat: number;
+}
+
 export interface DepartmentItem {
   departmentId: string;
   name: string;
@@ -98,600 +108,25 @@ export interface DepartmentItem {
     PermissionsEditorComponent,
     SharedTableComponent,
   ],
-  template: `
-    <div class="space-y-6">
-      <ng-template #checkboxHeader>
-        <app-checkbox
-          [checked]="isAllSelected()"
-          (checkedChange)="toggleSelectAll()"
-        ></app-checkbox>
-      </ng-template>
-      <ng-template #checkboxCell let-ctx>
-        <app-checkbox
-          [checked]="selectedEmployeeIds().has(ctx.row.employeeId)"
-          (checkedChange)="toggleSelectEmployee(ctx.row.employeeId)"
-        ></app-checkbox>
-      </ng-template>
-      <ng-template #employeeCell let-ctx>
-        <div class="flex items-center space-x-3">
-          <app-avatar
-            [src]="ctx.row.avatarUrl"
-            [name]="ctx.row.firstName + ' ' + ctx.row.lastName"
-            size="sm"
-            shape="rounded"
-            [status]="ctx.row.isOnline ? 'online' : null"
-          ></app-avatar>
-          <div class="min-w-0">
-            <p class="font-semibold text-slate-900 dark:text-white truncate">
-              {{ ctx.row.firstName }} {{ ctx.row.lastName }}
-            </p>
-            <div class="flex items-center space-x-2 text-xs text-slate-400 truncate">
-              <span class="truncate">{{ ctx.row.email }}</span>
-              @if (ctx.row.dateOfBirth) {
-                <span>•</span>
-                <span class="text-slate-500 dark:text-slate-400 shrink-0">{{ ctx.row.dateOfBirth }}</span>
-              }
-            </div>
-          </div>
-        </div>
-      </ng-template>
-      <ng-template #roleCell let-ctx>
-        <span
-          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-[#2A65F6] border border-blue-200/60 dark:border-blue-800/60"
-        >
-          <svg
-            class="w-3.5 h-3.5 shrink-0"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="1.8"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-            />
-          </svg>
-          {{ ctx.row.roleName || 'EMPLOYEE' }}
-        </span>
-      </ng-template>
-      <ng-template #deptCell let-ctx>
-        <div class="flex flex-col gap-1 items-start">
-          <span
-            class="inline-flex items-center px-2 py-0.5 rounded-[8px] text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-          >
-            {{ ctx.row.departmentName || 'Unassigned' }}
-          </span>
-          @if (ctx.row.branchName) {
-            <span
-              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[8px] text-[10px] font-medium bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50"
-            >
-              <svg
-                class="w-3 h-3 text-indigo-500 shrink-0"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.8"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
-              {{ ctx.row.branchName }}
-            </span>
-          }
-        </div>
-      </ng-template>
-      <ng-template #salaryCell let-ctx>
-        <span class="font-mono text-slate-900 dark:text-white font-medium">
-          {{ ctx.row.salary ? formatEmployeeSalary(ctx.row) : '—' }}
-        </span>
-      </ng-template>
-      <ng-template #statusCell let-ctx>
-        <app-badge [variant]="getStatusVariant(ctx.row.status)" [showDot]="true">
-          {{ ctx.row.status }}
-        </app-badge>
-      </ng-template>
-      <ng-template #roleNameCell let-ctx>
-        <div class="flex items-center space-x-3">
-          <div
-            class="w-9 h-9 rounded-[8px] flex items-center justify-center shrink-0"
-            [ngClass]="
-              ctx.row.isSystem
-                ? 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300'
-                : 'bg-blue-100 dark:bg-blue-950/50 text-[#2A65F6]'
-            "
-          >
-            <svg
-              class="w-4 h-4"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.8"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-              />
-            </svg>
-          </div>
-          <div>
-            <div class="flex items-center space-x-2">
-              <span class="font-semibold text-slate-900 dark:text-white">
-                {{ ctx.row.name }}
-              </span>
-              @if (ctx.row.isSystem) {
-                <span
-                  class="px-1.5 py-0.5 rounded-[8px] text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
-                >
-                  SYSTEM
-                </span>
-              } @else {
-                <span
-                  class="px-1.5 py-0.5 rounded-[8px] text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-[#2A65F6] border border-blue-200 dark:border-blue-800"
-                >
-                  CUSTOM
-                </span>
-              }
-            </div>
-            <p class="text-xs text-slate-400 truncate max-w-sm">
-              {{ ctx.row.description || 'Custom organizational permission profile' }}
-            </p>
-          </div>
-        </div>
-      </ng-template>
-      <ng-template #rolePermCountCell let-ctx>
-        <span
-          class="inline-flex items-center px-2.5 py-1 rounded-[8px] text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-        >
-          {{ (ctx.row.permissions || []).length }} permissions
-        </span>
-      </ng-template>
-      <ng-template #roleTypeCell let-ctx>
-        <app-badge [variant]="ctx.row.isSystem ? 'primary' : 'neutral'" [showDot]="false">
-          {{ ctx.row.isSystem ? 'Default System' : 'Custom Defined' }}
-        </app-badge>
-      </ng-template>
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="page-title">
-            {{ activeTab() === 'employees' ? 'Employees Directory' : 'Roles & Permissions' }}
-          </h1>
-          <p class="page-description">
-            {{
-              activeTab() === 'employees'
-                ? 'Manage staff profiles, department assignments, and organizational roles.'
-                : 'Configure workspace roles, granular permissions, and system access policies.'
-            }}
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          @if (activeTab() === 'employees' && canCreateEmployee()) {
-            <app-button [disabled]="isFreeTrialLimitReached()" (click)="openInviteModal()">
-              <span class="mr-1.5">+</span>
-              <span>Invite Employee</span>
-            </app-button>
-          }
-          @if (activeTab() === 'roles') {
-            <app-button (click)="openCreateRoleModal()">
-              <span class="mr-1.5">+</span>
-              <span>Create Role</span>
-            </app-button>
-          }
-        </div>
-      </div>
-      <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
-        <app-tabs
-          [tabs]="tabItems()"
-          [activeTab]="activeTab()"
-          (activeTabChange)="onTabSelect($event)"
-        ></app-tabs>
-      </div>
-      @if (actionFeedback()) {
-        <div
-          class="p-4 rounded-[8px] border text-sm flex items-center justify-between"
-          [ngClass]="
-            actionFeedback()!.isError
-              ? 'bg-red-50 dark:bg-red-950/40 border-red-200 text-red-800 dark:text-red-300'
-              : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-800 dark:text-emerald-300'
-          "
-        >
-          <span>{{ actionFeedback()!.message }}</span>
-          <button (click)="actionFeedback.set(null)" class="text-xs font-semibold px-2 py-1">
-            ✕
-          </button>
-        </div>
-      }
-      @if (invitationSuccessLink()) {
-        <div
-          class="p-4 rounded-[8px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-sm text-emerald-800 dark:text-emerald-300"
-        >
-          <p class="font-semibold mb-1">Invitation Link Generated Successfully!</p>
-          <p
-            class="text-xs break-all font-mono bg-white dark:bg-slate-900 p-2 rounded-[8px] border border-emerald-200 mt-2"
-          >
-            {{ invitationSuccessLink() }}
-          </p>
-        </div>
-      }
-      @if (activeTab() === 'employees') {
-        @if (isFreeTrialLimitReached()) {
-          <div
-            class="p-4 rounded-[8px] bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 text-sm text-amber-800 dark:text-amber-300 flex items-center justify-between"
-          >
-            <div class="flex items-center space-x-2.5">
-              <svg
-                class="w-5 h-5 text-amber-600 shrink-0"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.8"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <span>
-                <strong>Free Trial Limit Reached:</strong> Your workspace has reached the limit of 10
-                employees for Free Trial. Upgrade to Pro or Ultra in Workspace Settings to add more
-                team members.
-              </span>
-            </div>
-            <a
-              routerLink="/settings"
-              class="px-3.5 py-1.5 rounded-[8px] bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap ml-4 transition-colors"
-            >
-              Upgrade Plan
-            </a>
-          </div>
-        }
-        @if (selectedEmployeeIds().size > 0) {
-          <div
-            class="px-4 py-2.5 rounded-[8px] bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 flex items-center justify-between text-xs text-blue-900 dark:text-blue-200 animate-fade-in"
-          >
-            <div class="flex items-center space-x-2">
-              <span class="font-semibold">{{ selectedEmployeeIds().size }}</span>
-              <span>employees selected</span>
-            </div>
-            <button
-              type="button"
-              (click)="clearSelection()"
-              class="px-2.5 py-1 rounded-[8px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition"
-            >
-              Clear Selection
-            </button>
-          </div>
-        }
-        <theme-table
-          [rows]="sortedEmployees()"
-          rowKey="employeeId"
-          [columns]="employeeColumns"
-          [actions]="employeeTableActions"
-          [searchable]="true"
-          [clientSideSearch]="false"
-          searchPlaceholder="Search employees by name, email, designation..."
-          (searchChange)="onTableSearch($event)"
-          [showFilterButton]="true"
-          [activeFilterCount]="activeFilterCount()"
-          (filterClick)="openFilterModal()"
-          [clientSidePagination]="false"
-          [currentPage]="currentPage()"
-          [pageSize]="pageSize()"
-          [totalRecords]="totalEmployees()"
-          [showPageSizeSelector]="true"
-          (pageChange)="onTablePageChange($event)"
-          (sortChange)="onTableSortChange($event)"
-          (actionClick)="onEmployeeTableActionClick($event)"
-          emptyTitle="No employees found"
-          emptyMessage="Try adjusting your filters or invite new team members to get started."
-        ></theme-table>
-      }
-      @if (activeTab() === 'roles') {
-        <theme-table
-          [rows]="roles()"
-          rowKey="name"
-          [columns]="roleColumns"
-          [actions]="roleTableActions"
-          [searchable]="true"
-          [clientSideSearch]="true"
-          searchPlaceholder="Search roles by title..."
-          [clientSidePagination]="true"
-          [pageSize]="10"
-          [showPageSizeSelector]="false"
-          (actionClick)="onRoleTableActionClick($event)"
-          emptyTitle="No roles found"
-          emptyMessage="Create a custom role to configure modular permissions for your team members."
-        ></theme-table>
-      }
-      <app-modal
-        [isOpen]="isInviteModalOpen()"
-        title="Invite New Employee"
-        size="lg"
-        [showFooter]="true"
-        primaryLabel="Send Invitation"
-        secondaryLabel="Cancel"
-        [primaryLoading]="isSubmitting()"
-        (primaryAction)="submitInvite()"
-        (secondaryAction)="closeInviteModal()"
-        (closed)="closeInviteModal()"
-      >
-        <form [formGroup]="inviteForm" (ngSubmit)="submitInvite()" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <app-input
-            label="First name"
-            [required]="true"
-            formControlName="firstName"
-          ></app-input>
-          <app-input
-            label="Last name"
-            [required]="true"
-            formControlName="lastName"
-          ></app-input>
-          <app-input
-            label="Email"
-            type="email"
-            [required]="true"
-            formControlName="email"
-          ></app-input>
-          <app-input
-            label="Designation"
-            [required]="true"
-            formControlName="designation"
-          ></app-input>
-          <app-select
-            label="Assigned role"
-            [required]="true"
-            [options]="roleSelectOptions()"
-            formControlName="roleId"
-          ></app-select>
-          <app-select
-            label="Employment type"
-            [required]="true"
-            [options]="employmentTypeOptions"
-            formControlName="employmentType"
-          ></app-select>
-          <app-select
-            label="Branch / location"
-            [options]="branchOptions()"
-            formControlName="branchId"
-          ></app-select>
-          <app-select
-            label="Department"
-            [options]="departmentOptions()"
-            formControlName="departmentId"
-          ></app-select>
-          <app-input
-            label="Contact #"
-            formControlName="phone"
-          ></app-input>
-          <app-input
-            label="Country / region"
-            formControlName="userLocationRegion"
-          ></app-input>
-          @if (canViewSalary()) {
-            <app-input
-              [label]="'Annual salary (' + getBranchCurrency(inviteForm.get('branchId')?.value) + ')'"
-              type="number"
-              formControlName="salary"
-            ></app-input>
-          }
-          <app-input
-            label="Tax deduction (%)"
-            type="number"
-            formControlName="taxPercentage"
-          ></app-input>
-        </form>
-      </app-modal>
-      <app-modal
-        [isOpen]="isEditModalOpen()"
-        [title]="
-          'Edit Employee: ' +
-          (editingEmployee()?.firstName || '') +
-          ' ' +
-          (editingEmployee()?.lastName || '')
-        "
-        size="lg"
-        [showFooter]="true"
-        primaryLabel="Save Changes"
-        secondaryLabel="Cancel"
-        [primaryLoading]="isSubmitting()"
-        (primaryAction)="submitEdit()"
-        (secondaryAction)="closeEditModal()"
-        (closed)="closeEditModal()"
-      >
-        <form [formGroup]="editForm" (ngSubmit)="submitEdit()" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <app-input
-            label="First name"
-            [disabled]="true"
-            [value]="editingEmployee()?.firstName || ''"
-          ></app-input>
-          <app-input
-            label="Last name"
-            [disabled]="true"
-            [value]="editingEmployee()?.lastName || ''"
-          ></app-input>
-          <app-input
-            label="Email"
-            [disabled]="true"
-            [value]="editingEmployee()?.email || ''"
-          ></app-input>
-          <app-input
-            label="Designation"
-            [required]="true"
-            formControlName="designation"
-          ></app-input>
-          <app-select
-            label="Assigned role"
-            [required]="true"
-            [options]="roleSelectOptions()"
-            formControlName="roleId"
-          ></app-select>
-          <app-select
-            label="Account status"
-            [required]="true"
-            [options]="statusOptions"
-            formControlName="status"
-          ></app-select>
-          <app-select
-            label="Branch / location"
-            [options]="branchOptions()"
-            formControlName="branchId"
-          ></app-select>
-          <app-select
-            label="Department"
-            [options]="departmentOptions()"
-            formControlName="departmentId"
-          ></app-select>
-          <app-select
-            label="Employment type"
-            [required]="true"
-            [options]="employmentTypeOptions"
-            formControlName="employmentType"
-          ></app-select>
-          <app-input
-            label="Contact #"
-            formControlName="phone"
-          ></app-input>
-          @if (canViewSalary()) {
-            <app-input
-              [label]="'Annual salary (' + getBranchCurrency(editForm.get('branchId')?.value) + ')'"
-              type="number"
-              formControlName="salary"
-            ></app-input>
-          }
-          <app-input
-            label="Tax deduction (%)"
-            type="number"
-            formControlName="taxPercentage"
-          ></app-input>
-          <app-input
-            label="Country / region"
-            formControlName="userLocationRegion"
-          ></app-input>
-        </form>
-      </app-modal>
-      <app-modal
-        [isOpen]="isRoleModalOpen()"
-        [title]="editingRole() ? 'Edit Role: ' + editingRole()!.name : 'Create Role'"
-        size="xl"
-        [showFooter]="true"
-        [primaryLabel]="editingRole() ? 'Update Role' : 'Create Role'"
-        secondaryLabel="Cancel"
-        [primaryLoading]="isSubmittingRole()"
-        (primaryAction)="submitRole()"
-        (secondaryAction)="closeRoleModal()"
-        (closed)="closeRoleModal()"
-      >
-        <div class="space-y-5">
-          <form [formGroup]="roleForm" (ngSubmit)="submitRole()" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <app-input
-              label="Role name"
-              [required]="true"
-              formControlName="name"
-            ></app-input>
-            <app-input
-              label="Role description"
-              formControlName="description"
-            ></app-input>
-          </form>
-          <div class="pt-4 border-t border-slate-100 dark:border-slate-800 max-h-[50vh] overflow-y-auto pr-1.5 custom-scrollbar">
-            <app-permissions-editor
-              [selectedPermissions]="roleFormPermissions()"
-              (selectedPermissionsChange)="roleFormPermissions.set($event)"
-            ></app-permissions-editor>
-          </div>
-        </div>
-      </app-modal>
-      <app-modal
-        [isOpen]="isFilterModalOpen()"
-        title="Filter Employees"
-        size="md"
-        [showFooter]="true"
-        [showResetButton]="true"
-        resetLabel="Reset Filters"
-        primaryLabel="Apply Filters"
-        secondaryLabel="Cancel"
-        (primaryAction)="applyFilters()"
-        (secondaryAction)="closeFilterModal()"
-        (resetAction)="resetFilters()"
-        (closed)="closeFilterModal()"
-      >
-        <form [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <app-select
-            label="Branch"
-            [options]="branchOptions()"
-            formControlName="branchId"
-          ></app-select>
-          <app-select
-            label="Department"
-            [options]="departmentOptions()"
-            formControlName="departmentId"
-          ></app-select>
-          <app-select
-            label="Status"
-            [options]="[
-              { label: 'All Statuses', value: '' },
-              { label: 'Active', value: 'ACTIVE' },
-              { label: 'Inactive / Suspended', value: 'INACTIVE' },
-              { label: 'On Leave', value: 'ON_LEAVE' },
-              { label: 'Terminated', value: 'TERMINATED' }
-            ]"
-            formControlName="status"
-          ></app-select>
-          <app-select
-            label="Employment type"
-            [options]="[
-              { label: 'All Employment Types', value: '' },
-              { label: 'Full Time', value: 'FULL_TIME' },
-              { label: 'Part Time', value: 'PART_TIME' },
-              { label: 'Contractor', value: 'CONTRACT' },
-              { label: 'Intern', value: 'INTERN' }
-            ]"
-            formControlName="employmentType"
-          ></app-select>
-        </form>
-      </app-modal>
-      <app-confirmation-modal
-        [isOpen]="!!pendingDeleteEmployee()"
-        title="Delete Employee Record"
-        [message]="deleteEmployeeMessage()"
-        [highlightText]="pendingDeleteEmployee()?.email"
-        variant="danger"
-        confirmLabel="Delete Employee"
-        [loading]="isDeletingEmployee()"
-        (confirmed)="confirmDeleteEmployee()"
-        (cancelled)="pendingDeleteEmployee.set(null)"
-      ></app-confirmation-modal>
-      <app-confirmation-modal
-        [isOpen]="!!pendingDeleteRole()"
-        title="Delete Custom Role"
-        [message]="deleteRoleMessage()"
-        variant="danger"
-        confirmLabel="Delete Role"
-        [loading]="isDeletingRole()"
-        (confirmed)="confirmDeleteRole()"
-        (cancelled)="pendingDeleteRole.set(null)"
-      ></app-confirmation-modal>
-      <app-success-modal
-        [isOpen]="isInviteSuccessModalOpen()"
-        title="Employee Invited Successfully!"
-        message="The onboarding invitation has been created. The employee can use the unique invite link below to set up their account."
-        [copyableText]="invitationSuccessLink() || ''"
-        buttonLabel="Done"
-        (closed)="isInviteSuccessModalOpen.set(false)"
-      ></app-success-modal>
-    </div>
-  `,
+  templateUrl: "./employees.component.html",
+  styleUrl: "./employees.component.scss",
 })
-export class EmployeesComponent implements OnInit {
+export class EmployeesComponent implements OnInit, OnDestroy {
+  private feedbackTimeout: any = null;
+
+  setFeedback(message: string, isError = false): void {
+    this.actionFeedback.set({ message, isError });
+    if (this.feedbackTimeout) clearTimeout(this.feedbackTimeout);
+    this.feedbackTimeout = setTimeout(() => {
+      this.actionFeedback.set(null);
+      this.cdr.markForCheck();
+    }, 5000);
+    this.cdr.markForCheck();
+  }
+
+  ngOnDestroy(): void {
+    if (this.feedbackTimeout) clearTimeout(this.feedbackTimeout);
+  }
   private readonly api = inject(ApiService);
   readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
@@ -723,6 +158,7 @@ export class EmployeesComponent implements OnInit {
 
   readonly employees = signal<EmployeeRecord[]>([]);
   readonly roles = signal<RoleItem[]>([]);
+  readonly seatStatus = signal<SeatStatusResponse | null>(null);
   readonly departmentOptions = signal<SelectOption[]>([]);
   readonly branchOptions = signal<SelectOption[]>([]);
   readonly searchQuery = signal<string>('');
@@ -751,6 +187,8 @@ export class EmployeesComponent implements OnInit {
   readonly isDeletingEmployee = signal<boolean>(false);
   readonly allDepartments = signal<DepartmentItem[]>([]);
   readonly allBranches = signal<any[]>([]);
+  readonly hasBranches = computed(() => this.allBranches().length > 0);
+  readonly hasDepartments = computed(() => this.allDepartments().length > 0);
 
   readonly roleForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
@@ -871,10 +309,10 @@ export class EmployeesComponent implements OnInit {
       : '';
   });
 
-  readonly isFreeTrialLimitReached = computed(() => {
-    const plan = this.authService.currentCompany()?.subscription?.plan;
-    const isTrial = !plan || plan === 'FREE_TRIAL';
-    return isTrial && this.employees().length >= 10;
+  readonly isSeatLimitReached = computed(() => {
+    const seats = this.seatStatus();
+    if (!seats) return false;
+    return seats.availableSeats <= 0;
   });
 
   /** Switches between Employees and Roles tabs and refreshes role data when needed. */
@@ -1050,6 +488,7 @@ export class EmployeesComponent implements OnInit {
     this.loadRoles();
     this.loadDepartments();
     this.loadBranches();
+    this.loadSeatStatus();
     this.inviteForm.get('branchId')?.valueChanges.subscribe((branchId: string) => {
       this.updateDepartmentOptions(branchId);
     });
@@ -1274,12 +713,23 @@ export class EmployeesComponent implements OnInit {
     this.loadEmployees();
   }
 
-  /** Opens the modal for inviting a new employee. */
+  // loadSeatStatus: fetches workspace seat capacity and active count
+  loadSeatStatus(): void {
+    this.api.get<SeatStatusResponse>('companies/seats/status').subscribe({
+      next: (res) => {
+        this.seatStatus.set(res);
+        this.cdr.markForCheck();
+      },
+      error: () => {},
+    });
+  }
+
+  // openInviteModal: opens the modal for inviting a new employee
   openInviteModal(): void {
-    if (this.isFreeTrialLimitReached()) {
+    if (this.isSeatLimitReached()) {
+      const seats = this.seatStatus();
       this.actionFeedback.set({
-        message:
-          'Free trial is limited to a maximum of 10 employees. Upgrade to Pro or Ultra in Settings to invite more team members.',
+        message: `You have reached your ${seats?.purchasedSeats ?? 5} employee seats plan. Please add more seats in Settings to invite team members.`,
         isError: true,
       });
       return;
@@ -1317,26 +767,27 @@ export class EmployeesComponent implements OnInit {
     if (this.inviteForm.invalid) return;
     this.isSubmitting.set(true);
     const payload = { ...this.inviteForm.value };
+    if (!payload.departmentId || !this.hasDepartments()) delete payload.departmentId;
+    if (!payload.branchId || !this.hasBranches()) delete payload.branchId;
     this.api
       .post<{ employee: EmployeeRecord; invitationLink: string }>('employees', payload)
       .subscribe({
         next: (res) => {
           this.isSubmitting.set(false);
           this.closeInviteModal();
-          this.invitationSuccessLink.set(window.location.origin + res.invitationLink);
+          const inviteUrl = res.invitationLink.startsWith('http')
+            ? res.invitationLink.replace(/http:\/\/localhost:\d+/, environment.marketingUrl).replace('/register', '/invite')
+            : `${environment.marketingUrl}${res.invitationLink.replace('/register', '/invite')}`;
+          this.invitationSuccessLink.set(inviteUrl);
           this.isInviteSuccessModalOpen.set(true);
-          this.actionFeedback.set({
-            message: `Invitation dispatched to ${payload.email} successfully.`,
-          });
+          this.setFeedback(`Employee created and invite link has been sent to ${payload.email}.`);
           this.loadEmployees();
+          this.loadSeatStatus();
           this.cdr.markForCheck();
         },
         error: (err) => {
           this.isSubmitting.set(false);
-          this.actionFeedback.set({
-            message: err?.error?.message || 'Failed to send invitation',
-            isError: true,
-          });
+          this.setFeedback(err?.error?.message || 'Failed to send invitation', true);
           this.cdr.markForCheck();
         },
       });
@@ -1385,6 +836,8 @@ export class EmployeesComponent implements OnInit {
     if (!emp || this.editForm.invalid) return;
     this.isSubmitting.set(true);
     const payload = { ...this.editForm.value };
+    if (!payload.departmentId || !this.hasDepartments()) delete payload.departmentId;
+    if (!payload.branchId || !this.hasBranches()) delete payload.branchId;
     this.api.patch<EmployeeRecord>(`employees/${emp.employeeId}`, payload).subscribe({
       next: () => {
         this.isSubmitting.set(false);
@@ -1393,6 +846,7 @@ export class EmployeesComponent implements OnInit {
           message: `Employee record for ${emp.firstName} ${emp.lastName} updated successfully.`,
         });
         this.loadEmployees();
+        this.loadSeatStatus();
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -1443,6 +897,7 @@ export class EmployeesComponent implements OnInit {
           message: `Employee ${emp.firstName} ${emp.lastName} permanently deleted.`,
         });
         this.loadEmployees();
+        this.loadSeatStatus();
         this.cdr.markForCheck();
       },
       error: (err) => {

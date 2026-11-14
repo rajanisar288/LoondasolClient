@@ -1,14 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { AuthService } from '../../core/services/auth.service';
-
-@Component({
-  selector: 'app-home',
-  standalone: true,
-  imports: [CommonModule, RouterModule],
-  template: `
-    <div class="min-h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 selection:bg-[#2A65F6] selection:text-white transition-colors duration-200 font-sans">
+<div class="min-h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 selection:bg-[#2A65F6] selection:text-white transition-colors duration-200 font-sans">
       <!-- HEADER NAVBAR -->
       <header class="sticky top-0 z-50 backdrop-blur-md bg-white/85 dark:bg-[#0f172a]/85 border-b border-slate-200/80 dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -391,63 +381,98 @@ import { AuthService } from '../../core/services/auth.service';
       <!-- PRICING SECTION -->
       <section id="pricing" class="py-20 bg-slate-100 dark:bg-[#0f172a] border-t border-slate-200 dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="text-center max-w-3xl mx-auto mb-14">
-            <h2 class="text-xs font-bold uppercase tracking-widest text-[#2A65F6] mb-2">Transparent Subscription Plans</h2>
+          <div class="text-center max-w-3xl mx-auto mb-10">
+            <h2 class="text-xs font-bold uppercase tracking-widest text-[#2A65F6] mb-2">Transparent Per-User Pricing</h2>
             <p class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Start Free, Scale as Your Workspace Expands
+              Pay Only For The Seats You Need
             </p>
             <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
-              Free Trial supports up to 10 employees — upgrade anytime with zero downtime.
+              Modern per-seat billing like Slack and Jira. Add or remove team members anytime with instant prorated adjustments.
+            </p>
+          </div>
+
+          <!-- Interactive Employee Seat Calculator -->
+          <div class="max-w-xl mx-auto mb-12 p-5 bg-white dark:bg-[#181a1f] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Team Size Calculator</span>
+              <span class="text-xs font-extrabold px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-[#2A65F6] rounded-full">
+                {{ calculatorSeats() }} Total Seats
+              </span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="200"
+              step="1"
+              [value]="calculatorSeats()"
+              (input)="setCalculatorSeats(+$any($event.target).value)"
+              class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#2A65F6]"
+            />
+            <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+              <span>1 Seat</span>
+              <span>50 Seats</span>
+              <span>100 Seats</span>
+              <span>200+ Seats</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
+              Calculated for <strong>{{ calculatorSeats() }} employees</strong> (includes 1 owner + {{ calculatorSeats() - 1 }} team members):
+              <span class="text-[#2A65F6] font-bold">${{ getSeatTotal(5) }}/mo</span> on Growth Pro.
             </p>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-            <!-- Free Plan -->
+            <!-- Starter Plan -->
             <div class="p-6 rounded-2xl bg-white dark:bg-[#181a1f] border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
               <div>
-                <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Free Tier</span>
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white mt-3">Free Trial</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Ideal for small teams and startups.</p>
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Starter</span>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mt-3">Starter Team</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Essential HR directory, tasks, and team attendance.</p>
                 <div class="mt-5 flex items-baseline">
-                  <span class="text-3xl font-extrabold text-slate-900 dark:text-white">$0</span>
-                  <span class="ml-1.5 text-xs text-slate-500">/ forever trial</span>
+                  <span class="text-3xl font-extrabold text-slate-900 dark:text-white">$3</span>
+                  <span class="ml-1.5 text-xs text-slate-500">/ user / month</span>
                 </div>
 
-                <div class="mt-3 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/60 text-xs font-semibold text-[#2A65F6]">
-                  Strictly up to 10 employees
+                <div class="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-slate-200 flex justify-between">
+                  <span>{{ calculatorSeats() }} seats total:</span>
+                  <span class="text-[#2A65F6]">${{ getSeatTotal(3) }}/month</span>
                 </div>
 
                 <ul class="mt-5 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>HR & Employee Directory</span>
+                    <span>1,000 AI Co-Pilot Requests / month</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Kanban Tasks & Personal Todo Timers</span>
+                    <span>Employee Directory & Org Hierarchy</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>WebSocket Chat & Voice Notes</span>
+                    <span>Kanban Task Board & Subtasks</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>ChatGPT / DeepSeek AI Co-Pilot</span>
+                    <span>Real-time Chat & WebSockets</span>
+                  </li>
+                  <li class="flex items-center space-x-2">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    <span>Self-Service Attendance Punching</span>
                   </li>
                 </ul>
               </div>
 
               <div class="mt-6">
                 <a
-                  routerLink="/auth/register"
+                  [routerLink]="['/auth/register']"
+                  [queryParams]="{ plan: 'STARTER', seats: calculatorSeats() }"
                   class="w-full block text-center py-2.5 px-4 rounded-xl font-bold text-[#2A65F6] bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 transition border border-blue-200 dark:border-slate-700 text-xs"
                 >
-                  Start Free Trial
+                  Choose Starter (${{ getSeatTotal(3) }}/mo)
                 </a>
               </div>
             </div>
 
-            <!-- Pro Plan -->
+            <!-- Pro Plan ($5/user) -->
             <div class="relative p-6 rounded-2xl bg-white dark:bg-[#181a1f] border-2 border-[#2A65F6] shadow-lg flex flex-col justify-between transform lg:-translate-y-1">
               <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-extrabold bg-[#2A65F6] text-white shadow-xs uppercase tracking-wider">
                 Most Popular
@@ -456,91 +481,103 @@ import { AuthService } from '../../core/services/auth.service';
               <div>
                 <span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950/60 text-[#2A65F6]">Professional</span>
                 <h3 class="text-xl font-bold text-slate-900 dark:text-white mt-3">Growth Pro</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">For growing teams requiring automated payroll and geofenced punches.</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Full enterprise features, automated payroll, and generous AI quota.</p>
                 <div class="mt-5 flex items-baseline">
-                  <span class="text-3xl font-extrabold text-slate-900 dark:text-white">$49</span>
-                  <span class="ml-1.5 text-xs text-slate-500">/ month</span>
+                  <span class="text-3xl font-extrabold text-slate-900 dark:text-white">$5</span>
+                  <span class="ml-1.5 text-xs text-slate-500">/ user / month</span>
                 </div>
 
-                <div class="mt-3 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/60 text-xs font-semibold text-emerald-600">
-                  Up to 100 employees
+                <div class="mt-3 p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/60 text-xs font-bold text-[#2A65F6] flex justify-between">
+                  <span>{{ calculatorSeats() }} seats total:</span>
+                  <span class="text-blue-700 dark:text-blue-300 font-extrabold">${{ getSeatTotal(5) }}/month</span>
                 </div>
 
                 <ul class="mt-5 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Everything in Free Trial</span>
+                    <span><strong>5,000 AI Co-Pilot Requests</strong> / month</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Automated Payroll & PDF Payslips</span>
+                    <span>Everything in Starter Tier</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Geofenced GPS Attendance & Manual Punches</span>
+                    <span>Automated Monthly Payroll & PDF Slips</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Multi-Branch Hierarchy Support</span>
+                    <span>Geofenced GPS Attendance & Shifts</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Accountant & Expense Management</span>
+                    <span>Multi-Branch Hierarchy & Department Workflows</span>
+                  </li>
+                  <li class="flex items-center space-x-2">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    <span>Custom Onboarding Forms & Documents</span>
                   </li>
                 </ul>
               </div>
 
               <div class="mt-6">
                 <a
-                  routerLink="/auth/register"
+                  [routerLink]="['/auth/register']"
+                  [queryParams]="{ plan: 'PRO', seats: calculatorSeats() }"
                   class="w-full block text-center py-2.5 px-4 rounded-xl font-bold text-white bg-[#2A65F6] hover:bg-[#1e54d8] shadow-md shadow-blue-500/20 transition text-xs"
                 >
-                  Get Started with Pro
+                  Choose Growth Pro (${{ getSeatTotal(5) }}/mo)
                 </a>
               </div>
             </div>
 
-            <!-- Ultra Plan -->
+            <!-- Enterprise Plan ($8/user) -->
             <div class="p-6 rounded-2xl bg-white dark:bg-[#181a1f] border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
               <div>
                 <span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-600">Enterprise</span>
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white mt-3">Enterprise Ultra</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Full enterprise customization, Super Admin access, and priority shards.</p>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mt-3">Enterprise Scale</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Unlimited AI requests, dedicated support, and priority regional shards.</p>
                 <div class="mt-5 flex items-baseline">
-                  <span class="text-3xl font-extrabold text-slate-900 dark:text-white">$149</span>
-                  <span class="ml-1.5 text-xs text-slate-500">/ month</span>
+                  <span class="text-3xl font-extrabold text-slate-900 dark:text-white">$8</span>
+                  <span class="ml-1.5 text-xs text-slate-500">/ user / month</span>
                 </div>
 
-                <div class="mt-3 p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-900/60 text-xs font-semibold text-purple-600">
-                  Unlimited Employees
+                <div class="mt-3 p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-900/60 text-xs font-bold text-purple-700 dark:text-purple-300 flex justify-between">
+                  <span>{{ calculatorSeats() }} seats total:</span>
+                  <span class="font-extrabold">${{ getSeatTotal(8) }}/month</span>
                 </div>
 
                 <ul class="mt-5 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Everything in Growth Pro</span>
+                    <span><strong>Unlimited AI Co-Pilot Requests</strong></span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Dedicated Regional Redis & Socket Cluster</span>
+                    <span>Everything in Growth Pro Tier</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Social Media Marketing Studio</span>
+                    <span>Production Kafka & Distributed Queues</span>
                   </li>
                   <li class="flex items-center space-x-2">
                     <span class="text-emerald-500 font-bold">✓</span>
-                    <span>Super Admin System Control Center</span>
+                    <span>Dedicated Regional Redis & Sharded Databases</span>
+                  </li>
+                  <li class="flex items-center space-x-2">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    <span>Super Admin Governance Center</span>
                   </li>
                 </ul>
               </div>
 
               <div class="mt-6">
                 <a
-                  routerLink="/auth/register"
+                  [routerLink]="['/auth/register']"
+                  [queryParams]="{ plan: 'ENTERPRISE', seats: calculatorSeats() }"
                   class="w-full block text-center py-2.5 px-4 rounded-xl font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700 text-xs"
                 >
-                  Contact Enterprise Sales
+                  Choose Enterprise (${{ getSeatTotal(8) }}/mo)
                 </a>
               </div>
             </div>
@@ -572,24 +609,3 @@ import { AuthService } from '../../core/services/auth.service';
         </div>
       </footer>
     </div>
-  `,
-})
-export class HomeComponent {
-  readonly authService = inject(AuthService);
-  readonly isDark = signal<boolean>(
-    typeof window !== 'undefined' ? document.documentElement.classList.contains('dark') : false
-  );
-
-  toggleDarkMode(): void {
-    if (typeof window === 'undefined') return;
-    const isNowDark = !this.isDark();
-    this.isDark.set(isNowDark);
-    if (isNowDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }
-}

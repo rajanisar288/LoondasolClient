@@ -2,6 +2,14 @@ import { Injectable, inject, signal } from '@angular/core';
 import { ApiService } from './api.service';
 import { SocketService, RealtimeNotification } from './socket.service';
 
+export interface ActiveToast {
+  id: string;
+  title: string;
+  message: string;
+  type?: string;
+  createdAt: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -12,6 +20,7 @@ export class NotificationService {
   readonly notifications = signal<RealtimeNotification[]>([]);
   readonly unreadCount = signal<number>(0);
   readonly isDropdownOpen = signal<boolean>(false);
+  readonly activeToasts = signal<ActiveToast[]>([]);
 
   constructor() {
     this.initSocketListener();
@@ -22,7 +31,29 @@ export class NotificationService {
       this.notifications.update((list) => [notif, ...list]);
       this.unreadCount.update((c) => c + 1);
       this.playChime();
+      this.showToast(notif.title, notif.message, notif.type);
     });
+  }
+
+  showToast(title: string, message: string, type: string = 'info'): void {
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newToast: ActiveToast = {
+      id,
+      title,
+      message,
+      type,
+      createdAt: Date.now(),
+    };
+    this.activeToasts.update((toasts) => [...toasts, newToast]);
+
+    // Automatically dismiss after 15 seconds
+    setTimeout(() => {
+      this.dismissToast(id);
+    }, 15000);
+  }
+
+  dismissToast(id: string): void {
+    this.activeToasts.update((toasts) => toasts.filter((t) => t.id !== id));
   }
 
   // Load notifications and initial unread counter from REST API

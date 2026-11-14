@@ -1,0 +1,262 @@
+<div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="page-title">Leave & Time Off</h1>
+          <p class="page-description">
+            Request personal, annual, or medical leave and manage team absence approvals.
+          </p>
+        </div>
+        <div class="flex items-center space-x-3">
+          <app-button (click)="openApplyModal()">
+            <span class="mr-1.5">+</span>
+            <span>Apply for Leave</span>
+          </app-button>
+        </div>
+      </div>
+
+      <!-- Leave Balance Summary Cards -->
+      @if (leaveBalances(); as bal) {
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="card p-4 space-y-1">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Yearly Balance Remaining</span>
+            <div class="flex items-baseline justify-between">
+              <span class="text-2xl font-bold text-slate-900 dark:text-white">{{ bal.remainingYearly }} <span class="text-xs font-normal text-slate-400">/ {{ bal.totalYearlyQuota }} days</span></span>
+              <span class="text-xs px-2 py-0.5 rounded-[8px] font-semibold bg-blue-50 text-[#2A65F6] dark:bg-blue-950/50">Yearly</span>
+            </div>
+          </div>
+
+          <div class="card p-4 space-y-1">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Monthly Limit Remaining</span>
+            <div class="flex items-baseline justify-between">
+              <span class="text-2xl font-bold text-slate-900 dark:text-white">{{ bal.remainingThisMonth }} <span class="text-xs font-normal text-slate-400">/ {{ bal.monthlyLimit }} days</span></span>
+              <span class="text-xs px-2 py-0.5 rounded-[8px] font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50">This Month</span>
+            </div>
+          </div>
+
+          @for (t of bal.types; track t.id) {
+            <div class="card p-4 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ t.name }}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                      [class]="t.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'">
+                  {{ t.isPaid ? 'Paid' : 'Unpaid' }}
+                </span>
+              </div>
+              <div class="flex items-baseline justify-between pt-1">
+                <span class="text-lg font-bold text-slate-900 dark:text-white">{{ t.remainingYearly }} <span class="text-xs font-normal text-slate-400">/ {{ t.quota }} days left</span></span>
+                <span class="text-[11px] text-slate-400">({{ t.remainingThisMonth }}d max/mo)</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <div class="border-b border-slate-200 dark:border-slate-800 flex space-x-8">
+        <button
+          type="button"
+          (click)="activeTab.set('my')"
+          [class]="
+            activeTab() === 'my'
+              ? 'border-[#2A65F6] text-[#2A65F6] font-semibold'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'
+          "
+          class="pb-3 border-b-2 text-sm transition"
+        >
+          My Applications ({{ myLeaves().length }})
+        </button>
+
+        @if (authService.hasPermission('leave.approve') || authService.currentUser()?.isOwner) {
+          <button
+            type="button"
+            (click)="activeTab.set('all')"
+            [class]="
+              activeTab() === 'all'
+                ? 'border-[#2A65F6] text-[#2A65F6] font-semibold'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'
+            "
+            class="pb-3 border-b-2 text-sm transition"
+          >
+            Company Review Queue ({{ allLeaves().length }})
+          </button>
+        }
+      </div>
+
+      <!-- Custom Cell Templates for Shared Table -->
+      <ng-template #durationCell let-ctx>
+        <span class="text-xs text-slate-500">
+          {{ ctx.row.startDate }} &rarr; {{ ctx.row.endDate }}
+        </span>
+      </ng-template>
+
+      <ng-template #daysCell let-ctx>
+        <span class="font-medium">
+          {{ ctx.row.daysCount }} day{{ ctx.row.daysCount > 1 ? 's' : '' }}
+        </span>
+      </ng-template>
+
+      <ng-template #reasonCell let-ctx>
+        <span class="max-w-xs truncate block">{{ ctx.row.reason }}</span>
+      </ng-template>
+
+      <ng-template #statusCell let-ctx>
+        <app-badge [variant]="getStatusVariant(ctx.row.status)">
+          {{ ctx.row.status }}
+        </app-badge>
+      </ng-template>
+
+      @if (activeTab() === 'my') {
+        <div class="space-y-3">
+          <h3 class="text-base font-semibold text-slate-900 dark:text-white">
+            My Leave History
+          </h3>
+          <theme-table
+            [rows]="myLeaves()"
+            [columns]="myLeaveColumns"
+            [searchable]="true"
+            [clientSideSearch]="true"
+            searchPlaceholder="Search my leave history..."
+            [showFilterButton]="false"
+            [clientSidePagination]="true"
+            [pageSize]="10"
+            [showPageSizeSelector]="true"
+            emptyTitle="No leave applications found"
+            emptyMessage="You have not submitted any leave applications yet."
+          ></theme-table>
+        </div>
+      } @else {
+        <div class="space-y-3">
+          <h3 class="text-base font-semibold text-slate-900 dark:text-white">
+            Team Requests Requiring Review
+          </h3>
+          <theme-table
+            [rows]="allLeaves()"
+            [columns]="teamLeaveColumns"
+            [actions]="teamLeaveActions"
+            (actionClick)="onTeamLeaveAction($event)"
+            [searchable]="true"
+            [clientSideSearch]="true"
+            searchPlaceholder="Search team leave requests..."
+            [showFilterButton]="false"
+            [clientSidePagination]="true"
+            [pageSize]="10"
+            [showPageSizeSelector]="true"
+            emptyTitle="No team requests"
+            emptyMessage="No employee leave applications currently awaiting review."
+          ></theme-table>
+        </div>
+      }
+
+      <app-drawer
+        [isOpen]="isApplyModalOpen()"
+        title="Apply for Leave"
+        subtitle="Submit time off request for management approval"
+        size="lg"
+        position="right"
+        (closed)="closeApplyModal()"
+      >
+        <form [formGroup]="applyForm" (ngSubmit)="submitApplication()" class="space-y-4">
+          <app-select
+            label="Leave Type"
+            [required]="true"
+            [options]="leaveTypeOptions()"
+            formControlName="leaveType"
+          ></app-select>
+
+          @if (selectedTypeBalance(); as selType) {
+            <div class="p-3 rounded-[8px] bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs flex items-center justify-between">
+              <div class="space-y-0.5">
+                <span class="font-bold text-slate-900 dark:text-white block">{{ selType.name }} Balance</span>
+                <span class="text-slate-600 dark:text-slate-300">
+                  {{ selType.remainingYearly }} days remaining this year ({{ selType.usedYearly }} used out of {{ selType.quota }}d)
+                </span>
+              </div>
+              <span class="px-2.5 py-1 rounded-[8px] text-[11px] font-bold bg-[#2A65F6] text-white">
+                Max {{ selType.remainingThisMonth }}d left this mo
+              </span>
+            </div>
+          }
+
+          <div class="grid grid-cols-2 gap-4">
+            <app-input
+              label="Start Date"
+              type="date"
+              [required]="true"
+              formControlName="startDate"
+            ></app-input>
+
+            <app-input
+              label="End Date"
+              type="date"
+              [required]="true"
+              formControlName="endDate"
+            ></app-input>
+          </div>
+
+          <app-input
+            label="Total Days Count"
+            type="number"
+            placeholder="1"
+            [required]="true"
+            formControlName="daysCount"
+          ></app-input>
+
+          <app-input
+            label="Reason for Absence"
+            placeholder="Attending medical appointment or annual family leave"
+            [required]="true"
+            formControlName="reason"
+          ></app-input>
+
+          <div
+            class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-slate-800"
+          >
+            <app-button variant="secondary" type="button" (click)="closeApplyModal()"
+              >Cancel</app-button
+            >
+            <app-button type="submit" [loading]="isSubmitting()">Submit Application</app-button>
+          </div>
+        </form>
+      </app-drawer>
+
+      <app-drawer
+        [isOpen]="isReviewModalOpen()"
+        [title]="isApproveAction() ? 'Approve Leave Request' : 'Reject Leave Request'"
+        subtitle="Review employee leave request details and notes"
+        size="md"
+        position="right"
+        (closed)="closeReviewModal()"
+      >
+        <div class="space-y-4">
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            Are you sure you want to {{ isApproveAction() ? 'approve' : 'reject' }} the leave
+            application for
+            <span class="font-semibold text-slate-900 dark:text-white">{{
+              selectedLeave()?.employeeName
+            }}</span
+            >?
+          </p>
+
+          <app-input
+            label="Reviewer Notes"
+            placeholder="Optional comment or instructions"
+            [showOptional]="true"
+            [formControl]="reviewNotesControl"
+          ></app-input>
+
+          <div
+            class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-slate-800"
+          >
+            <app-button variant="secondary" type="button" (click)="closeReviewModal()"
+              >Cancel</app-button
+            >
+            <app-button
+              [variant]="isApproveAction() ? 'primary' : 'danger'"
+              [loading]="isSubmitting()"
+              (click)="confirmReview()"
+            >
+              Confirm {{ isApproveAction() ? 'Approval' : 'Rejection' }}
+            </app-button>
+          </div>
+        </div>
+      </app-drawer>
+    </div>

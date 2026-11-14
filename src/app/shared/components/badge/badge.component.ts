@@ -16,20 +16,8 @@ export type BadgeVariant =
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <span
-      [ngClass]="getBadgeClasses()"
-      class="inline-flex items-center font-medium rounded-full px-2.5 py-0.5 text-xs transition-colors shrink-0"
-    >
-      @if (showDot) {
-        <span
-          class="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0"
-          [ngClass]="getDotClasses()"
-        ></span>
-      }
-      <ng-content></ng-content>
-    </span>
-  `,
+  templateUrl: "./badge.component.html",
+  styleUrl: "./badge.component.scss",
 })
 export class AppBadgeComponent {
   @Input() variant: BadgeVariant = 'primary';

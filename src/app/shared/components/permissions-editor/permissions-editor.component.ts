@@ -280,174 +280,22 @@ export const SYSTEM_PERMISSION_MODULES: PermissionModule[] = [
   standalone: true,
   imports: [CommonModule, AppCheckboxComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="space-y-4">
-      <!-- Top Modules Counter Badge -->
-      <div class="flex items-center justify-between pb-1">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-          <span>MODULES</span>
-          <span class="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-extrabold shadow-sm">
-            {{ modules.length }}
-          </span>
-        </div>
-
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            (click)="selectAllAll()"
-            class="text-xs font-semibold text-[#2A65F6] hover:underline"
-          >
-            Select All
-          </button>
-          <span class="text-slate-300 dark:text-slate-700">•</span>
-          <button
-            type="button"
-            (click)="deselectAllAll()"
-            class="text-xs font-semibold text-slate-500 hover:underline"
-          >
-            Deselect All
-          </button>
-        </div>
-      </div>
-
-      <!-- Modules Accordion List -->
-      <div class="space-y-3">
-        @for (mod of modules; track mod.id) {
-          <div
-            class="rounded-xl border transition-all duration-150 overflow-hidden bg-white dark:bg-slate-900"
-            [ngClass]="isModuleOpen(mod.id) ? 'border-slate-300 dark:border-slate-700 shadow-sm' : 'border-slate-200 dark:border-slate-800'"
-          >
-            <!-- Module Row Header -->
-            <div
-              class="flex items-center justify-between px-4 py-3.5 select-none transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 cursor-pointer"
-              (click)="toggleModuleOpen(mod.id)"
-            >
-              <div class="flex items-center gap-3 min-w-0 flex-1 pr-3" (click)="$event.stopPropagation()">
-                <!-- Checkbox to toggle all module permissions -->
-                <app-checkbox
-                  [checked]="isModuleFullySelected(mod)"
-                  [indeterminate]="isModulePartiallySelected(mod)"
-                  (checkedChange)="toggleModuleSelection(mod, $event)"
-                ></app-checkbox>
-
-                <!-- Tinted Icon Badge -->
-                <div
-                  class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                  [ngClass]="mod.iconBg"
-                >
-                  <span [innerHTML]="getSafeSvg(mod.iconSvg)" class="flex items-center justify-center"></span>
-                </div>
-
-                <!-- Title & Subtitle -->
-                <div class="min-w-0">
-                  <h4 class="text-sm font-bold text-slate-900 dark:text-white truncate">
-                    {{ mod.name }}
-                  </h4>
-                  <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                    {{ getSelectedCountInModule(mod) }} of {{ mod.permissions.length }} selected
-                  </p>
-                </div>
-              </div>
-
-              <!-- Chevron Toggle -->
-              <button
-                type="button"
-                (click)="toggleModuleOpen(mod.id); $event.stopPropagation()"
-                class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-transform duration-200"
-                [class.rotate-180]="isModuleOpen(mod.id)"
-              >
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-            </div>
-
-            <!-- Expanded Permissions Grid -->
-            @if (isModuleOpen(mod.id)) {
-              <div class="px-4 pb-4 pt-1 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900/50">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-                  @for (perm of mod.permissions; track perm.code) {
-                    <div
-                      (click)="togglePermission(perm.code)"
-                      class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border text-xs font-semibold select-none cursor-pointer transition-all duration-150"
-                      [ngClass]="
-                        isPermissionSelected(perm.code)
-                          ? 'border-[#2A65F6] bg-blue-50/60 dark:bg-blue-950/30 text-slate-900 dark:text-white ring-1 ring-[#2A65F6]/30'
-                          : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
-                      "
-                    >
-                      <app-checkbox
-                        [checked]="isPermissionSelected(perm.code)"
-                        (checkedChange)="togglePermission(perm.code)"
-                        (click)="$event.stopPropagation()"
-                      ></app-checkbox>
-
-                      <!-- Action Icon -->
-                      <span class="w-4 h-4 shrink-0 flex items-center justify-center text-slate-400">
-                        @switch (perm.iconType) {
-                          @case ('view') {
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          }
-                          @case ('create') {
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
-                          }
-                          @case ('update') {
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          }
-                          @case ('delete') {
-                            <svg class="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          }
-                          @case ('approve') {
-                            <svg class="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          }
-                          @case ('reject') {
-                            <svg class="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          }
-                          @case ('send') {
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                            </svg>
-                          }
-                          @default {
-                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-                            </svg>
-                          }
-                        }
-                      </span>
-
-                      <!-- Label -->
-                      <span class="truncate">{{ perm.label }}</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        }
-      </div>
-    </div>
-  `,
+  templateUrl: "./permissions-editor.component.html",
+  styleUrl: "./permissions-editor.component.scss",
 })
 export class PermissionsEditorComponent {
   private readonly sanitizer = inject(DomSanitizer);
   readonly modules = SYSTEM_PERMISSION_MODULES;
 
+  private readonly svgCache = new Map<string, SafeHtml>();
+
   getSafeSvg(svg: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(svg);
+    let safe = this.svgCache.get(svg);
+    if (!safe) {
+      safe = this.sanitizer.bypassSecurityTrustHtml(svg);
+      this.svgCache.set(svg, safe);
+    }
+    return safe;
   }
 
   @Input() set selectedPermissions(perms: string[] | null | undefined) {
@@ -457,6 +305,23 @@ export class PermissionsEditorComponent {
 
   readonly selectedSet = signal<Set<string>>(new Set());
   readonly openModuleIds = signal<Set<string>>(new Set(['users', 'roles']));
+
+  readonly moduleCounts = computed(() => {
+    const set = this.selectedSet();
+    const map = new Map<string, { count: number; fullySelected: boolean; partiallySelected: boolean }>();
+    for (const mod of this.modules) {
+      let count = 0;
+      for (const p of mod.permissions) {
+        if (set.has(p.code)) count++;
+      }
+      map.set(mod.id, {
+        count,
+        fullySelected: count === mod.permissions.length && count > 0,
+        partiallySelected: count > 0 && count < mod.permissions.length,
+      });
+    }
+    return map;
+  });
 
   isPermissionSelected(code: string): boolean {
     return this.selectedSet().has(code);
@@ -474,18 +339,15 @@ export class PermissionsEditorComponent {
   }
 
   getSelectedCountInModule(mod: PermissionModule): number {
-    const set = this.selectedSet();
-    return mod.permissions.filter((p) => set.has(p.code)).length;
+    return this.moduleCounts().get(mod.id)?.count || 0;
   }
 
   isModuleFullySelected(mod: PermissionModule): boolean {
-    const count = this.getSelectedCountInModule(mod);
-    return count === mod.permissions.length && count > 0;
+    return this.moduleCounts().get(mod.id)?.fullySelected || false;
   }
 
   isModulePartiallySelected(mod: PermissionModule): boolean {
-    const count = this.getSelectedCountInModule(mod);
-    return count > 0 && count < mod.permissions.length;
+    return this.moduleCounts().get(mod.id)?.partiallySelected || false;
   }
 
   toggleModuleSelection(mod: PermissionModule, selectAll: boolean): void {

@@ -1,0 +1,218 @@
+<div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="page-title">Departments & Projects</h1>
+          <p class="page-description">
+            Manage organizational structure, branch division units, and designated team leads.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Filter Scope:</span>
+            <select
+              [value]="selectedBranchFilter()"
+              (change)="onBranchFilterChange($any($event.target).value)"
+              class="text-xs font-medium py-1.5 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-1 focus:ring-[#2A65F6] cursor-pointer"
+            >
+              <option value="ALL">All Departments</option>
+              <option value="COMPANY_WIDE">🌐 Company-Wide Only</option>
+              @for (b of branches(); track b.branchId) {
+                <option [value]="b.branchId">🏢 {{ b.name }}</option>
+              }
+            </select>
+          </div>
+          @if (authService.hasPermission('departments.create')) {
+            <app-button (click)="openCreateModal()">
+              <span class="mr-1.5">+</span>
+              <span>New Department</span>
+            </app-button>
+          }
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        @for (dept of departments(); track dept.departmentId) {
+          <div class="card p-5 flex flex-col justify-between hover:shadow-md transition">
+            <div>
+              <div class="flex items-start justify-between">
+                <div class="flex items-center space-x-3">
+                  <div
+                    class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-[#2A65F6] flex items-center justify-center font-bold text-sm"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.8"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-slate-900 dark:text-white text-base">
+                      {{ dept.name }}
+                    </h3>
+                    <p class="text-xs text-slate-400">ID: {{ dept.departmentId }}</p>
+                  </div>
+                </div>
+                @if (dept.isCompanyWide || !dept.branchId) {
+                  <app-badge variant="primary">🌐 Company-Wide</app-badge>
+                } @else {
+                  <app-badge variant="neutral">🏢 {{ dept.branchName || 'Branch Unit' }}</app-badge>
+                }
+              </div>
+
+              <p class="text-sm text-slate-600 dark:text-slate-400 mt-3 line-clamp-2">
+                {{ dept.description || 'No department description provided.' }}
+              </p>
+            </div>
+
+            <div
+              class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between"
+            >
+              <div class="text-xs">
+                <span class="text-slate-400">Department Lead:</span>
+                <p class="font-medium text-slate-700 dark:text-slate-300 mt-0.5">
+                  {{ getManagerName(dept.managerId) }}
+                </p>
+              </div>
+
+              <div class="flex items-center space-x-2">
+                @if (authService.hasPermission('departments.update')) {
+                  <button
+                    type="button"
+                    (click)="openEditModal(dept)"
+                    class="p-1.5 rounded-lg text-slate-500 hover:text-[#2A65F6] hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    title="Edit Department"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </button>
+                }
+                @if (authService.hasPermission('departments.delete')) {
+                  <button
+                    type="button"
+                    (click)="deleteDepartment(dept.departmentId)"
+                    class="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition"
+                    title="Delete Department"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        } @empty {
+          <div class="col-span-full card p-12 text-center text-slate-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-12 w-12 mx-auto mb-3 text-slate-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
+            </svg>
+            <p class="text-base font-semibold text-slate-700 dark:text-slate-300">
+              No departments created yet
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+              Structure your organization into engineering, design, sales, and operations teams.
+            </p>
+          </div>
+        }
+      </div>
+
+      <app-modal
+        [isOpen]="isModalOpen()"
+        [title]="editingDept() ? 'Edit Department' : 'Create Department'"
+        (closed)="closeModal()"
+      >
+        <form [formGroup]="deptForm" (ngSubmit)="saveDepartment()" class="space-y-4">
+          <app-input
+            label="Department Name"
+            placeholder="Engineering & Development"
+            [required]="true"
+            formControlName="name"
+          ></app-input>
+
+          <app-select
+            label="Branch Scope"
+            [options]="branchScopeOptions()"
+            formControlName="branchId"
+            helperText="Choose Company-Wide for departments active across all branches, or scope to a specific office"
+          ></app-select>
+
+          <app-input
+            label="Description"
+            placeholder="Core product engineering and infrastructure maintenance"
+            [showOptional]="true"
+            formControlName="description"
+          ></app-input>
+
+          <app-select
+            label="Designated Manager"
+            [options]="managerOptions()"
+            [placeholder]="'Select a manager (Optional)'"
+            formControlName="managerId"
+          ></app-select>
+
+          <div
+            class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-slate-800"
+          >
+            <app-button variant="secondary" type="button" (click)="closeModal()">Cancel</app-button>
+            <app-button type="submit" [loading]="isSubmitting()">
+              {{ editingDept() ? 'Save Changes' : 'Create Department' }}
+            </app-button>
+          </div>
+        </form>
+      </app-modal>
+
+      <!-- Confirmation Modal -->
+      <app-confirmation-modal
+        [isOpen]="!!pendingDeleteDeptId()"
+        title="Delete Department"
+        message="Are you sure you want to delete this department? Employees assigned to this department will become unassigned."
+        variant="danger"
+        confirmLabel="Delete Department"
+        [loading]="isDeletingDept()"
+        (confirmed)="confirmDeleteDepartment()"
+        (cancelled)="pendingDeleteDeptId.set(null)"
+      ></app-confirmation-modal>
+    </div>

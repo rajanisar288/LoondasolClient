@@ -1,0 +1,194 @@
+<div class="space-y-6 w-full">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+          <h1 class="page-title">Attendance & Shifts</h1>
+          <span
+            class="px-2.5 py-1 rounded-[8px] bg-blue-50 dark:bg-blue-950/50 text-[#2A65F6] dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/70 text-xs font-semibold"
+            title="All attendance and shift times are recorded in your assigned branch or company timezone"
+          >
+            🕒 {{ authService.effectiveTimezone() }}
+          </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="w-48">
+            <app-date-picker
+              mode="single"
+              align="right"
+              placeholder="Filter by date"
+              [value]="filterDateObj()"
+              (dateChange)="onFilterDateChange($event)"
+            ></app-date-picker>
+          </div>
+
+          @if (filterDate()) {
+            <app-button variant="ghost" size="sm" (click)="clearDateFilter()">
+              Clear Date
+            </app-button>
+          }
+
+          <app-button variant="secondary" (click)="exportAttendanceCsv()">
+            Export CSV
+          </app-button>
+
+          <app-button variant="secondary" (click)="openManualPunchModal()">
+            + Manual Punch
+          </app-button>
+
+          @if (!todayRecord()?.clockInTime) {
+            <app-button (click)="clockIn()" [loading]="isLoading()">
+              Clock In
+            </app-button>
+          } @else if (!todayRecord()?.clockOutTime) {
+            <app-button variant="primary" (click)="clockOut()" [loading]="isLoading()">
+              Clock Out
+            </app-button>
+          } @else {
+            <app-badge variant="success" [showDot]="true">Completed Workday</app-badge>
+          }
+        </div>
+      </div>
+
+      @if (actionError()) {
+        <div class="p-3.5 rounded-[8px] bg-red-50 dark:bg-red-950/40 border border-red-200 text-xs text-red-700 dark:text-red-300 flex items-center justify-between">
+          <span>{{ actionError() }}</span>
+          <button type="button" (click)="actionError.set(null)" class="font-bold">✕</button>
+        </div>
+      }
+
+      @if (actionSuccess()) {
+        <div class="p-3.5 rounded-[8px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-xs text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+          <span>{{ actionSuccess() }}</span>
+          <button type="button" (click)="actionSuccess.set(null)" class="font-bold">✕</button>
+        </div>
+      }
+
+      <ng-template #employeeCell let-ctx>
+        <div class="flex items-center space-x-2.5">
+          <app-avatar
+            [src]="ctx.row.avatarUrl"
+            [name]="ctx.row.employeeName"
+            size="xs"
+            shape="rounded"
+          ></app-avatar>
+          <span class="font-semibold text-slate-900 dark:text-white">{{ ctx.row.employeeName }}</span>
+        </div>
+      </ng-template>
+
+      <ng-template #clockInCell let-ctx>
+        <span class="font-mono text-slate-700 dark:text-slate-300">
+          {{ ctx.row.clockInTime | date: 'shortTime' }}
+        </span>
+      </ng-template>
+
+      <ng-template #clockOutCell let-ctx>
+        <span class="font-mono text-slate-700 dark:text-slate-300">
+          {{ ctx.row.clockOutTime ? (ctx.row.clockOutTime | date: 'shortTime') : '—' }}
+        </span>
+      </ng-template>
+
+      <ng-template #hoursCell let-ctx>
+        <span class="font-medium text-slate-700 dark:text-slate-300">
+          {{ ctx.row.totalHours ? ctx.row.totalHours + ' hrs' : 'In progress' }}
+        </span>
+      </ng-template>
+
+      <ng-template #statusCell let-ctx>
+        <app-badge [variant]="getStatusVariant(ctx.row.status)" [showDot]="true">
+          {{ ctx.row.status }}
+        </app-badge>
+      </ng-template>
+
+      <theme-table
+        [rows]="filteredRecords()"
+        [columns]="attendanceColumns"
+        [searchable]="true"
+        [clientSideSearch]="false"
+        searchPlaceholder="Search by employee name..."
+        [searchValue]="searchQuery()"
+        (searchChange)="searchQuery.set($event); currentPage.set(1)"
+        [showFilterButton]="true"
+        [activeFilterCount]="(filterStatus() ? 1 : 0) + (filterDate() ? 1 : 0)"
+        (filterClick)="isFilterModalOpen.set(true)"
+        [clientSidePagination]="true"
+        [pageSize]="pageSize()"
+        [showPageSizeSelector]="true"
+        [currentPage]="currentPage()"
+        (pageChange)="currentPage.set($event.page); pageSize.set($event.pageSize)"
+        emptyTitle="No attendance records found"
+        emptyMessage="Clock in or add a manual punch to record shift attendance."
+      ></theme-table>
+
+      <app-modal
+        [isOpen]="isManualPunchModalOpen()"
+        title="Manual Attendance Punch"
+        size="md"
+        [showFooter]="true"
+        primaryLabel="Save Attendance"
+        secondaryLabel="Cancel"
+        [primaryLoading]="isSubmittingManual()"
+        [primaryDisabled]="!manualDateStr() || !manualClockInTime()"
+        (closed)="closeManualPunchModal()"
+        (secondaryAction)="closeManualPunchModal()"
+        (primaryAction)="submitManualPunch()"
+      >
+        <div class="space-y-5 py-2">
+          <div class="relative z-30">
+            <app-date-picker
+              mode="single"
+              align="left"
+              label="Attendance Date"
+              placeholder="Select date"
+              [required]="true"
+              [value]="manualDateObj()"
+              (dateChange)="onManualDateSelected($event)"
+            ></app-date-picker>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <app-input
+              label="Clock In Time"
+              type="time"
+              [required]="true"
+              [value]="manualClockInTime()"
+              (input)="manualClockInTime.set($any($event.target).value)"
+            ></app-input>
+
+            <app-input
+              label="Clock Out Time"
+              type="time"
+              [value]="manualClockOutTime()"
+              (input)="manualClockOutTime.set($any($event.target).value)"
+            ></app-input>
+          </div>
+
+          <app-input
+            label="Note / Reason"
+            placeholder="e.g. Forgot to clock in on shift start"
+            [value]="manualNotes()"
+            (input)="manualNotes.set($any($event.target).value)"
+          ></app-input>
+        </div>
+      </app-modal>
+
+      <app-modal
+        [isOpen]="isFilterModalOpen()"
+        title="Filter Attendance"
+        size="sm"
+        [showFooter]="true"
+        primaryLabel="Apply"
+        secondaryLabel="Reset"
+        (closed)="isFilterModalOpen.set(false)"
+        (primaryAction)="isFilterModalOpen.set(false)"
+        (secondaryAction)="resetFilters()"
+      >
+        <div class="space-y-4">
+          <app-select
+            label="Attendance Status"
+            [options]="statusOptions"
+            [(ngModel)]="selectedStatusFilter"
+            (valueChange)="filterStatus.set($any($event))"
+          ></app-select>
+        </div>
+      </app-modal>
+    </div>

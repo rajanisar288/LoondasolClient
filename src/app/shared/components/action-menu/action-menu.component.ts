@@ -25,56 +25,8 @@ export interface ActionMenuItem {
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="relative inline-block text-left">
-      <!-- 3-dots Trigger Button -->
-      <button
-        type="button"
-        (click)="toggleMenu($event)"
-        [disabled]="disabled"
-        class="inline-flex items-center justify-center w-8 h-8 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-[#2A65F6]/30 disabled:opacity-40"
-        [class.bg-slate-100]="isOpen()"
-        [class.dark:bg-slate-800]="isOpen()"
-        aria-label="Actions"
-      >
-        <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-        </svg>
-      </button>
-
-      <!-- Dropdown Popover Menu -->
-      @if (isOpen()) {
-        <div
-          class="absolute right-0 z-30 mt-1.5 w-48 origin-top-right rounded-2xl bg-white dark:bg-[#1E293B] shadow-elevated border border-slate-200 dark:border-slate-700/80 py-1.5 focus:outline-none animate-scale-in"
-          role="menu"
-          (click)="$event.stopPropagation()"
-        >
-          @for (item of items; track item.id) {
-            @if (item.dividerAbove) {
-              <div class="h-px bg-slate-100 dark:bg-slate-700/60 my-1"></div>
-            }
-            <button
-              type="button"
-              (click)="onSelect(item)"
-              [disabled]="item.disabled"
-              class="w-full text-left px-3.5 py-2 text-xs font-medium flex items-center space-x-2.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              [ngClass]="
-                item.isDanger
-                  ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
-              "
-              role="menuitem"
-            >
-              @if (item.icon) {
-                <span class="text-sm shrink-0">{{ item.icon }}</span>
-              }
-              <span class="truncate">{{ item.label }}</span>
-            </button>
-          }
-        </div>
-      }
-    </div>
-  `,
+  templateUrl: "./action-menu.component.html",
+  styleUrl: "./action-menu.component.scss",
 })
 export class AppActionMenuComponent {
   private readonly elementRef = inject(ElementRef);
