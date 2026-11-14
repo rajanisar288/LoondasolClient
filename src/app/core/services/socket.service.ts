@@ -2,6 +2,7 @@ import { Injectable, inject, NgZone } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Subject, BehaviorSubject } from 'rxjs';
 import { TokenService } from './token.service';
+import { ApiService } from './api.service';
 import { environment } from '../../../environments/environment';
 
 export interface ChatMessageAttachment {
@@ -86,6 +87,7 @@ export interface TypingEvent {
 })
 export class SocketService {
   private readonly tokenService = inject(TokenService);
+  private readonly api = inject(ApiService);
   private readonly ngZone = inject(NgZone);
   private socket: Socket | null = null;
 
@@ -143,6 +145,10 @@ export class SocketService {
   readonly meetingPeerLeft$ = this.meetingPeerLeftSubject.asObservable();
   readonly meetingSignal$ = this.meetingSignalSubject.asObservable();
 
+  isConnected(): boolean {
+    return !!(this.socket && this.socket.connected);
+  }
+
   connect(): void {
     const token = this.tokenService.getAccessToken();
     if (!token) return;
@@ -160,8 +166,14 @@ export class SocketService {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 3,
+      timeout: 5000,
+    });
+
+    this.socket.on('connect_error', () => {
+      // Serverless hosting environments like Vercel do not maintain open TCP/WebSocket connections.
+      // Chat functionality gracefully degrades to REST fallback.
     });
 
     this.socket.on('newMessage', (message: ChatMessage) => {
@@ -262,16 +274,30 @@ export class SocketService {
     replyTo?: ChatMessageReply,
     mentions?: string[],
   ): void {
+    const payload = {
+      content,
+      channelId,
+      recipientId,
+      attachments,
+      type,
+      audioDurationSeconds,
+      replyTo,
+      mentions,
+    };
+
     if (this.socket && this.socket.connected) {
-      this.socket.emit('sendMessage', {
-        content,
-        channelId,
-        recipientId,
-        attachments,
-        type,
-        audioDurationSeconds,
-        replyTo,
-        mentions,
+      this.socket.emit('sendMessage', payload);
+    } else {
+      // Seamless REST fallback when WebSocket connection is unavailable (e.g. Vercel serverless)
+      this.api.post<ChatMessage>('chat/messages', payload).subscribe({
+        next: (savedMessage) => {
+          this.ngZone.run(() => {
+            this.messageSubject.next(savedMessage);
+          });
+        },
+        error: (err) => {
+          console.error('Failed to send message via REST fallback:', err);
+        },
       });
     }
   }
@@ -279,12 +305,30 @@ export class SocketService {
   pinMessage(messageId: string, channelId?: string, recipientId?: string): void {
     if (this.socket && this.socket.connected) {
       this.socket.emit('pinMessage', { messageId, channelId, recipientId });
+    } else {
+      this.api.post<ChatMessage>(`chat/messages/${messageId}/pin`, {}).subscribe({
+        next: (pinnedMsg) => {
+          this.ngZone.run(() => {
+            this.messagePinnedSubject.next(pinnedMsg);
+          });
+        },
+        error: (err) => console.error('Failed to pin message via REST:', err),
+      });
     }
   }
 
   reactMessage(messageId: string, emoji: string, channelId?: string, recipientId?: string): void {
     if (this.socket && this.socket.connected) {
       this.socket.emit('reactMessage', { messageId, emoji, channelId, recipientId });
+    } else {
+      this.api.post<ChatMessage>(`chat/messages/${messageId}/react`, { emoji }).subscribe({
+        next: (updatedMsg) => {
+          this.ngZone.run(() => {
+            this.messageReactedSubject.next(updatedMsg);
+          });
+        },
+        error: (err) => console.error('Failed to react via REST:', err),
+      });
     }
   }
 
@@ -299,13 +343,35 @@ export class SocketService {
   editMessage(messageId: string, content: string): void {
     if (this.socket && this.socket.connected) {
       this.socket.emit('editMessage', { messageId, content });
+    } else {
+      this.api.patch<ChatMessage>(`chat/messages/${messageId}`, { content }).subscribe({
+        next: (updatedMsg) => {
+          this.ngZone.run(() => {
+            this.messageEditedSubject.next(updatedMsg);
+          });
+        },
+        error: (err) => console.error('Failed to edit message via REST:', err),
+      });
     }
   }
 
   // Delete an existing message
-  deleteMessage(messageId: string): void {
+  deleteMessage(messageId: string, channelId?: string, recipientId?: string): void {
     if (this.socket && this.socket.connected) {
       this.socket.emit('deleteMessage', { messageId });
+    } else {
+      this.api.delete<{ success: boolean; messageId: string }>(`chat/messages/${messageId}`).subscribe({
+        next: () => {
+          this.ngZone.run(() => {
+            this.messageDeletedSubject.next({
+              messageId,
+              channelId: channelId || '',
+              recipientId,
+            });
+          });
+        },
+        error: (err) => console.error('Failed to delete message via REST:', err),
+      });
     }
   }
 

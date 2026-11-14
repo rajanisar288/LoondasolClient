@@ -504,6 +504,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private mediaRecorder: any = null;
   private audioChunks: Blob[] = [];
   private recordingTimer: any = null;
+  private fallbackPollingTimer: any = null;
 
   ngOnInit(): void {
     this.socketService.connect();
@@ -514,9 +515,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.loadUnreadCounts();
     this.loadConversationsSummary();
     this.loadMessages(this.activeChannel());
+
+    // Intelligent polling fallback for serverless hosting (e.g. Vercel)
+    this.fallbackPollingTimer = setInterval(() => {
+      if (!this.socketService.isConnected()) {
+        this.pollActiveMessages();
+      }
+    }, 3500);
   }
 
   ngOnDestroy(): void {
+    if (this.fallbackPollingTimer) clearInterval(this.fallbackPollingTimer);
     this.socketSubs.forEach((s) => s.unsubscribe());
     if (this.typingTimeout) clearTimeout(this.typingTimeout);
     if (this.recordingTimer) clearInterval(this.recordingTimer);
@@ -1109,6 +1118,48 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       },
       error: () => {},
     });
+  }
+
+  private pollActiveMessages(): void {
+    const direct = this.activeDirectUser();
+    if (direct && direct.userId) {
+      this.api.get<ChatMessage[]>(`chat/direct/${direct.userId}`, { limit: 50 }).subscribe({
+        next: (data) => {
+          if (!data) return;
+          const currentList = this.messages();
+          if (
+            data.length !== currentList.length ||
+            (data.length > 0 &&
+              currentList.length > 0 &&
+              data[data.length - 1].messageId !== currentList[currentList.length - 1].messageId)
+          ) {
+            this.messages.set(data);
+            this.shouldScrollToBottom = true;
+          }
+        },
+        error: () => {},
+      });
+    } else {
+      const channel = this.activeChannel();
+      if (channel) {
+        this.api.get<ChatMessage[]>('chat/messages', { channelId: channel, limit: 50 }).subscribe({
+          next: (data) => {
+            if (!data) return;
+            const currentList = this.messages();
+            if (
+              data.length !== currentList.length ||
+              (data.length > 0 &&
+                currentList.length > 0 &&
+                data[data.length - 1].messageId !== currentList[currentList.length - 1].messageId)
+            ) {
+              this.messages.set(data);
+              this.shouldScrollToBottom = true;
+            }
+          },
+          error: () => {},
+        });
+      }
+    }
   }
 
   onFileSelected(event: Event): void {
