@@ -1,37 +1,68 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { guestGuard } from './core/guards/guest.guard';
 import { permissionGuard } from './core/guards/permission.guard';
 import { superAdminGuard } from './core/guards/super-admin.guard';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
+import { environment } from '../environments/environment';
 
 export const routes: Routes = [
   {
-    path: 'auth/login',
-    loadComponent: () =>
-      import('./core/auth/login/login.component').then((m) => m.LoginComponent),
-    canActivate: [guestGuard],
+    path: 'login',
+    canActivate: [
+      () => {
+        if (typeof window !== 'undefined') {
+          window.location.href = `${environment.marketingUrl}/login`;
+        }
+        return false;
+      },
+    ],
+    children: [],
   },
   {
-    path: 'auth/register',
-    loadComponent: () =>
-      import('./core/auth/register/register.component').then((m) => m.RegisterComponent),
-    canActivate: [guestGuard],
+    path: 'auth/login',
+    canActivate: [
+      () => {
+        if (typeof window !== 'undefined') {
+          window.location.href = `${environment.marketingUrl}/login`;
+        }
+        return false;
+      },
+    ],
+    children: [],
   },
   {
     path: 'register',
-    loadComponent: () =>
-      import('./core/auth/register/register.component').then((m) => m.RegisterComponent),
-    canActivate: [guestGuard],
+    canActivate: [
+      () => {
+        if (typeof window !== 'undefined') {
+          window.location.href = `${environment.marketingUrl}/signup`;
+        }
+        return false;
+      },
+    ],
+    children: [],
+  },
+  {
+    path: 'auth/register',
+    canActivate: [
+      () => {
+        if (typeof window !== 'undefined') {
+          window.location.href = `${environment.marketingUrl}/signup`;
+        }
+        return false;
+      },
+    ],
+    children: [],
   },
   {
     path: 'home',
-    loadComponent: () => import('./public/home/home.component').then((m) => m.HomeComponent),
+    redirectTo: 'dashboard',
+    pathMatch: 'full',
   },
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () => import('./public/home/home.component').then((m) => m.HomeComponent),
+    redirectTo: 'dashboard',
   },
   {
     path: '',
