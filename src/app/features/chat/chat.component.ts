@@ -515,6 +515,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.loadUnreadCounts();
     this.loadConversationsSummary();
     this.loadMessages(this.activeChannel());
+    console.log(
+      '%c[ChatComponent]%c Initialized for channel #' + this.activeChannel() + ' | Realtime sync active',
+      'background: #0284c7; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+      'color: #0284c7; font-weight: bold; margin-left: 6px;',
+    );
 
     // Intelligent polling fallback for serverless hosting (e.g. Vercel)
     this.fallbackPollingTimer = setInterval(() => {
@@ -1133,6 +1138,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
               currentList.length > 0 &&
               data[data.length - 1].messageId !== currentList[currentList.length - 1].messageId)
           ) {
+            console.log(
+              '%c[ChatComponent]%c 🔄 Synced new direct message(s) from peer',
+              'background: #059669; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+              'color: #059669; margin-left: 6px;',
+            );
             this.messages.set(data);
             this.shouldScrollToBottom = true;
           }
@@ -1152,6 +1162,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
                 currentList.length > 0 &&
                 data[data.length - 1].messageId !== currentList[currentList.length - 1].messageId)
             ) {
+              console.log(
+                '%c[ChatComponent]%c 🔄 Synced new channel message(s)',
+                'background: #059669; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+                'color: #059669; margin-left: 6px;',
+              );
               this.messages.set(data);
               this.shouldScrollToBottom = true;
             }

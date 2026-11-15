@@ -94,6 +94,9 @@ export class SocketService {
   private wsDisabled = false;
 
   private isWebSocketSupportedHost(): boolean {
+    if (typeof window !== 'undefined' && (window as any).__FORCE_WS__) {
+      return true;
+    }
     const url = environment.socketUrl || '';
     // Vercel Serverless Functions do not support persistent WebSockets.
     // If the API is hosted on api.loondasol.com or vercel.app, we bypass
@@ -168,8 +171,13 @@ export class SocketService {
     if (!token) return;
 
     // In environments that do not support WebSockets (like Vercel serverless),
-    // skip dialing to avoid browser console errors.
+    // skip raw WebSocket dialing to eliminate browser console errors and operate via REST + polling.
     if (!this.isWebSocketSupportedHost() || this.wsDisabled) {
+      console.log(
+        '%c[Loondasol Realtime]%c Serverless mode active: REST messaging & 3.5s real-time sync active (WebSockets routed cleanly).',
+        'background: #2563eb; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+        'color: #059669; font-weight: bold; margin-left: 6px;',
+      );
       return;
     }
 
@@ -185,6 +193,12 @@ export class SocketService {
 
     this.isConnecting = true;
     const socketEndpoint = `${environment.socketUrl}/chat`;
+    console.log(
+      '%c[Loondasol Realtime]%c Connecting to WebSocket gateway at: ' + socketEndpoint,
+      'background: #2563eb; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+      'color: #2563eb; margin-left: 6px;',
+    );
+
     this.socket = io(socketEndpoint, {
       auth: { token },
       transports: ['websocket', 'polling'],
@@ -194,11 +208,21 @@ export class SocketService {
 
     this.socket.on('connect', () => {
       this.isConnecting = false;
+      console.log(
+        '%c[Loondasol Realtime]%c 🟢 WebSocket connected successfully!',
+        'background: #16a34a; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+        'color: #16a34a; font-weight: bold; margin-left: 6px;',
+      );
     });
 
-    this.socket.on('connect_error', () => {
+    this.socket.on('connect_error', (error) => {
       this.isConnecting = false;
       this.wsDisabled = true;
+      console.log(
+        '%c[Loondasol Realtime]%c 🟡 WebSocket unavailable. Automatically switched to HTTP REST Realtime sync.',
+        'background: #d97706; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+        'color: #d97706; font-weight: bold; margin-left: 6px;',
+      );
       if (this.socket) {
         try {
           this.socket.disconnect();
@@ -208,6 +232,12 @@ export class SocketService {
     });
 
     this.socket.on('newMessage', (message: ChatMessage) => {
+      console.log(
+        '%c[Loondasol Realtime]%c 📥 Incoming message received:',
+        'background: #7c3aed; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+        'color: #7c3aed; margin-left: 6px;',
+        message,
+      );
       this.ngZone.run(() => this.messageSubject.next(message));
     });
 
@@ -317,17 +347,35 @@ export class SocketService {
     };
 
     if (this.socket && this.socket.connected) {
+      console.log(
+        '%c[Loondasol Realtime]%c 🚀 Sending message via WebSocket:',
+        'background: #16a34a; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+        'color: #16a34a; margin-left: 6px;',
+        payload,
+      );
       this.socket.emit('sendMessage', payload);
     } else {
+      console.log(
+        '%c[Loondasol Realtime]%c 📡 Sending message via HTTP REST (Serverless):',
+        'background: #2563eb; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+        'color: #2563eb; margin-left: 6px;',
+        payload,
+      );
       // Seamless REST fallback when WebSocket connection is unavailable (e.g. Vercel serverless)
       this.api.post<ChatMessage>('chat/messages', payload).subscribe({
         next: (savedMessage) => {
+          console.log(
+            '%c[Loondasol Realtime]%c ✅ Message successfully saved and synced:',
+            'background: #16a34a; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
+            'color: #16a34a; margin-left: 6px;',
+            savedMessage,
+          );
           this.ngZone.run(() => {
             this.messageSubject.next(savedMessage);
           });
         },
         error: (err) => {
-          console.error('Failed to send message via REST fallback:', err);
+          console.error('[Loondasol Realtime] ❌ Failed to send message via REST fallback:', err);
         },
       });
     }
